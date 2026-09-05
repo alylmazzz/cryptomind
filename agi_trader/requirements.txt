@@ -1,6 +1,10 @@
 # --- Çekirdek (zorunlu) ---
 numpy>=1.24
 pandas>=2.0
+# Olay deposu parquet yazar (runs/social/YYYY-MM.parquet). pyarrow YOKSA kod .csv.gz'ye
+# düşüyordu ve o yolda TEKRAR AYIKLAMA yapılmıyordu → RSS tekrarları depoyu şişiriyordu.
+# CI bu farkı yakaladı (yerelde pyarrow kuruluydu, temiz kurulumda değildi).
+pyarrow>=14.0
 
 # --- Canlı veri + gerçek on-chain/whale/funding/OI (önerilir) ---
 ccxt>=4.5

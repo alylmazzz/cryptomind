@@ -486,7 +486,7 @@ def evaluate(ctx: Dict, p: CommitteeParams, learned: Optional[Dict] = None) -> V
         (triggers(fast, "pullback" if template == "mean_reversion" else "mean_reversion", p, allow_short, news) if fast.get("ok") else [])
     fired = [t for t in all_trig if t["kind"] in allowed]
     now_ts = float(ctx.get("now") or time.time())          # killzone etiketi (replay'de simülasyon saati)
-    fired += SF.fire_sleeves(fast, allowed, news, p, allow_short, now_ts)
+    fired += SF.fire_sleeves(fast, allowed, news, p, allow_short, now_ts, ctx.get("df"))
     # Kapanmış-bar sinyali: 30 sn'lik örnekleme devam eden barı görür; "yeşil bar" koşulu titreşir ve
     # kurulum kaçar. Son KAPANMIŞ bar tetiklediyse ve fiyat kaçmadıysa (≤ 0,5 ATR) sinyal geçerli sayılır.
     closed_note = ""
@@ -501,7 +501,7 @@ def evaluate(ctx: Dict, p: CommitteeParams, learned: Optional[Dict] = None) -> V
                     seen = {t["kind"] for t in fired}
                     extra = [t for t in triggers(fc, template, p, allow_short, news) +
                              triggers(fc, "pullback" if template == "mean_reversion" else "mean_reversion", p, allow_short, news) +
-                             SF.fire_sleeves(fc, allowed, news, p, allow_short, now_ts)
+                             SF.fire_sleeves(fc, allowed, news, p, allow_short, now_ts, dfc)
                              if t["kind"] in allowed and t["kind"] not in seen]
                     if extra:
                         for t in extra:
@@ -518,7 +518,8 @@ def evaluate(ctx: Dict, p: CommitteeParams, learned: Optional[Dict] = None) -> V
     _shadow = set()
     if lifecycle is not None:
         _shadow = {k for k in SF.ALL_SLEEVES if not lifecycle.can_trade(k, mode)}
-    for t in all_trig + SF.fire_sleeves(fast, [k for k in SF.ALL_SLEEVES if k not in allowed], news, p, allow_short, now_ts):
+    for t in all_trig + SF.fire_sleeves(fast, [k for k in SF.ALL_SLEEVES if k not in allowed],
+                                        news, p, allow_short, now_ts, ctx.get("df")):
         if t["kind"] not in allowed and t["kind"] not in seen_k and t["kind"] not in {x["kind"] for x in silenced}:
             silenced.append({"kind": t["kind"], "direction": t["direction"], "note": t.get("note"),
                              "gate": ("SLEEVE_DURAKLATILDI" if t["kind"] in paused

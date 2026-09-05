@@ -8,7 +8,8 @@ KATKI DOĞRULAYICI — bir topluluk kurulumunun sisteme girip giremeyeceğine Ö
 
 Dört aşama, hepsi geçilmeden bir üste çıkılmaz:
 
-  1. YÜKLEME     — META şeması + `fire` imzası + ad çakışması.
+  1. YÜKLEME     — META şeması + `fire` imzası + ad çakışması. `fire` beşinci parametre
+                   `df` tanımlarsa kendi göstergesini hesaplayabilir (DI±, MACD, SAR …).
   2. STATİK      — ağ/dosya erişimi, ileriye bakış (`shift(-n)`), tohumsuz rastgelelik,
                    global durum değişimi. Bunlar ölçümü GEÇERSİZ kılar, o yüzden önce bakılır.
   3. ATEŞLEME    — GERÇEK 1 dk veride tetiklenme oranı. Bu depoda ölçülmüş ders:
@@ -71,11 +72,13 @@ def statik_denetim(kaynak: str, modul_adi: str) -> List[str]:
             for a in d.names:
                 kok = a.name.split(".")[0]
                 if kok in YASAK_MODUL:
-                    bulgular.append(f"yasak import: {a.name} — katkı yalnız `f` sözlüğünden okur")
+                    bulgular.append(f"yasak import: {a.name} — katkı yalnız `f` ve `df`'den okur, "
+                                    f"dış dünyaya erişemez")
         elif isinstance(d, ast.ImportFrom):
             kok = (d.module or "").split(".")[0]
             if kok in YASAK_MODUL:
-                bulgular.append(f"yasak import: {d.module} — katkı yalnız `f` sözlüğünden okur")
+                bulgular.append(f"yasak import: {d.module} — katkı yalnız `f` ve `df`'den okur, "
+                                f"dış dünyaya erişemez")
         elif isinstance(d, ast.Call):
             ad = getattr(d.func, "id", None) or getattr(d.func, "attr", None)
             if ad in YASAK_CAGRI:
@@ -116,10 +119,12 @@ def olc(sleeve: str, hist: Dict, p, maliyet_pct: float, ufuk_bar: int,
         n = len(df)
         for i in range(pencere, n - ufuk_bar, adim):
             pencere_n += 1
-            f = _ozellikler(df.iloc[i - pencere:i], p)
+            pencere_df = df.iloc[i - pencere:i]
+            f = _ozellikler(pencere_df, p)
             if not f:
                 continue
-            trig = CB.fire_contrib_sleeves(f, [sleeve], p, allow_short=False, now_ts=None)
+            trig = CB.fire_contrib_sleeves(f, [sleeve], p, allow_short=False, now_ts=None,
+                                           df=pencere_df)
             if not trig:
                 continue
             t = trig[0]
@@ -166,138 +171,184 @@ def _istatistik(x: List[float]) -> Dict:
             "ikinci_yari": round(sum(x[yari:]) / (n - yari), 4) if yari else None}
 
 
-def main() -> int:
-    _utf8()
-    ap = argparse.ArgumentParser(description="Topluluk katkısı doğrulayıcı")
-    ap.add_argument("--sleeve", required=True, help="doğrulanacak katkı adı (META['name'])")
-    ap.add_argument("--days", type=float, default=7.0)
-    ap.add_argument("--symbols", default="BTC/USDT,ETH/USDT,SOL/USDT,DOGE/USDT,AVAX/USDT")
-    ap.add_argument("--venue", default="mexc")
-    ap.add_argument("--cost-pct", type=float, default=0.14, help="gidiş-dönüş maliyet (%%)")
-    ap.add_argument("--step", type=int, default=5, help="pencere adımı (bar)")
-    ap.add_argument("--evidence", action="store_true", help="kanıtı lifecycle kaydına yaz")
-    ap.add_argument("--json", default="", help="sonucu bu dosyaya yaz")
-    a = ap.parse_args()
-
-    from agi_trader.strategies import contrib as CB, sleeves_fast as SF, committee as CM
-
-    print("═" * 78)
-    print(f"KATKI DOĞRULAYICI · {a.sleeve} · {a.days} gün · {a.venue}")
-    print("═" * 78)
-
-    # ── 1) yükleme ────────────────────────────────────────────────────────
-    print("\n[1/4] YÜKLEME")
-    if CB.LOAD_ERRORS:
+def _yukle_ve_statik(sleeve: str, CB) -> Optional[Dict]:
+    """Aşama 1–2. Geçerse META döner, geçmezse None (sebep basılmıştır)."""
+    print(f"\n[1/4] YÜKLEME · {sleeve}")
+    if sleeve not in CB.CONTRIB:
+        print(f"  ✗ '{sleeve}' yüklenmedi. Yüklenenler: {CB.all_sleeves() or '(yok)'}")
         for e in CB.LOAD_ERRORS:
-            print(f"  ✗ {e['modul']}: " + "; ".join(e["hatalar"]))
-    if a.sleeve not in CB.CONTRIB:
-        print(f"  ✗ '{a.sleeve}' yüklenmedi. Yüklenenler: {CB.all_sleeves() or '(yok)'}")
-        print("\nVERDİKT: REDDEDİLDİ — yükleme aşaması geçilemedi.")
-        return 2
-    meta = CB.CONTRIB[a.sleeve]["meta"]
+            print(f"    ✗ {e['modul']}: " + "; ".join(e["hatalar"]))
+        return None
+    meta = CB.CONTRIB[sleeve]["meta"]
     print(f"  ✓ yüklendi · yazar {meta['author']} · çıkış {meta['exit_mode']} · "
-          f"zaman-stop {meta['time_stop_min']} dk · rejim {', '.join(meta['regimes'])}")
+          f"zaman-stop {meta['time_stop_min']} dk · rejim {', '.join(meta['regimes'])}"
+          + (" · kendi göstergesini hesaplıyor (df)" if CB.CONTRIB[sleeve].get("df_ister") else ""))
     print(f"    kaynak : {meta['source']}")
     print(f"    iddia  : {meta['claim']}")
     print(f"    kanıtı : {meta['claim_evidence']}")
 
-    # ── 2) statik ─────────────────────────────────────────────────────────
-    print("\n[2/4] STATİK DENETİM")
-    src = (Path(CB.__path__[0]) / f"{CB.CONTRIB[a.sleeve]['modul']}.py").read_text(encoding="utf-8")
-    bulgular = statik_denetim(src, a.sleeve)
+    print(f"\n[2/4] STATİK DENETİM · {sleeve}")
+    src = (Path(CB.__path__[0]) / f"{CB.CONTRIB[sleeve]['modul']}.py").read_text(encoding="utf-8")
+    bulgular = statik_denetim(src, sleeve)
     if bulgular:
         for b in bulgular:
             print(f"  ✗ {b}")
-        print("\nVERDİKT: REDDEDİLDİ — statik denetim ölçümü geçersiz kılacak bulgular buldu.")
-        return 2
+        return None
     print("  ✓ ağ/dosya erişimi yok · ileriye bakış yok · tohumsuz rastgelelik yok · global yok")
+    return meta
 
-    # ── 3) ateşleme oranı ────────────────────────────────────────────────
-    print(f"\n[3/4] GERÇEK VERİDE ATEŞLEME ({a.days} gün, {a.venue})")
-    from agi_trader.auto.replay import HistoryFetcher
-    syms = [s.strip() for s in a.symbols.split(",") if s.strip()]
-    end_ms = int(time.time() * 1000)
-    span = int(a.days * 24 * 3600 * 1000)
-    hf = HistoryFetcher(a.venue)
-    hist = {}
-    for s in syms:
-        try:
-            hist[(s, "1m")] = hf.fetch(s, "1m", end_ms - span, end_ms)
-            print(f"  {s:12s} {len(hist[(s,'1m')])} bar")
-        except Exception as e:
-            print(f"  {s:12s} veri alınamadı: {type(e).__name__}: {e}")
-    if not hist:
-        print("\nVERDİKT: ÖLÇÜLEMEDİ — veri yok.")
-        return 3
 
-    p = CM.CommitteeParams()
+def _olc_ve_karar(sleeve: str, meta: Dict, hist: Dict, p_, a) -> Dict:
+    """Aşama 3–4 + verdikt. Dönen sözlük özet tabloya girer."""
+    from agi_trader.strategies.lifecycle import Lifecycle
+
+    print(f"\n[3/4] GERÇEK VERİDE ATEŞLEME · {sleeve}")
     ufuk_bar = max(5, int(meta["time_stop_min"]))
-    r = olc(a.sleeve, hist, p, a.cost_pct, ufuk_bar, adim=a.step)
+    r = olc(sleeve, hist, p_, a.cost_pct, ufuk_bar, adim=a.step)
     oran = r["atesleme"] / max(1, r["pencere"]) * 100.0
     print(f"  pencere {r['pencere']} · ateşleme {r['atesleme']} · oran %{oran:.3f}")
+
+    ortak = {"sleeve": sleeve, "pencere": r["pencere"], "atesleme": r["atesleme"],
+             "atesleme_orani_pct": round(oran, 3), "gun": a.days, "venue": a.venue,
+             "meta": meta, "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+
     if r["atesleme"] == 0:
         print("  ✗ HİÇ ateşlemedi — koşullar aynı anda sağlanamıyor olabilir "
               "(bu depoda ters-FVG tam olarak böyle bir mantık çelişkisi taşıyordu).")
-        print("\nVERDİKT: REDDEDİLDİ — ölçülemeyen kurulum sisteme giremez.")
-        return 2
+        print(f"\nVERDİKT [{sleeve}]: REDDEDİLDİ — ölçülemeyen kurulum sisteme giremez.")
+        return {**ortak, "verdikt": "REDDEDİLDİ", "sebep": "hiç ateşlemedi"}
     if oran > 15.0:
         print(f"  ✗ oran %{oran:.1f} — aşırı yüksek; kurulum seçici değil, gürültü üretiyor.")
-        print("\nVERDİKT: REDDEDİLDİ — koşulları sıkılaştırın ve yeniden ölçün.")
-        return 2
+        print(f"\nVERDİKT [{sleeve}]: REDDEDİLDİ — koşulları sıkılaştırın ve yeniden ölçün.")
+        return {**ortak, "verdikt": "REDDEDİLDİ", "sebep": f"ateşleme oranı %{oran:.1f} > %15"}
     print("  ✓ ateşleme oranı makul bandda (%0–15)")
 
-    # ── 4) kenar ─────────────────────────────────────────────────────────
-    print(f"\n[4/4] KENAR (maliyet %{a.cost_pct} düşülmüş, kurulumun kendi stop/hedefiyle)")
+    print(f"\n[4/4] KENAR · {sleeve} (maliyet %{a.cost_pct} düşülmüş, kendi stop/hedefiyle)")
     net = [k["net_pct"] for k in r["kayitlar"]]
     st = _istatistik(net)
     sebepler: Dict[str, int] = {}
     for k in r["kayitlar"]:
         sebepler[k["sebep"]] = sebepler.get(k["sebep"], 0) + 1
     print(f"  n {st['n']} · ortalama net %{st['ort']} · t {st['t']} · CI95 {st['ci95']} · "
-          f"kazanma %{st['kazanma']*100:.1f}")
+          f"kazanma %{st['kazanma'] * 100:.1f}")
     print(f"  alt-dönem: ilk yarı %{st['ilk_yari']} · ikinci yarı %{st['ikinci_yari']}")
     print(f"  çıkış sebepleri: {sebepler}")
 
-    ci_alt_poz = st["ci95"][0] > 0
     tutarli = bool(st["ilk_yari"] is not None and st["ilk_yari"] > 0 and st["ikinci_yari"] > 0)
     iki_kat = _istatistik([k["brut_pct"] - 2.0 * a.cost_pct for k in r["kayitlar"]])["ort"]
     print(f"  2× maliyette beklenti: %{iki_kat}")
-
-    kapilar = {"beklenti_pozitif": st["ort"] > 0, "ci_alt_sinir_pozitif": ci_alt_poz,
+    kapilar = {"beklenti_pozitif": st["ort"] > 0, "ci_alt_sinir_pozitif": st["ci95"][0] > 0,
                "iki_kat_maliyette_pozitif": iki_kat > 0, "alt_donem_tutarli": tutarli,
                "n_yeterli": st["n"] >= 30}
     for k, v in kapilar.items():
         print(f"    {'✓' if v else '✗'} {k}")
 
-    sonuc = {"sleeve": a.sleeve, "meta": meta, "gun": a.days, "venue": a.venue,
-             "pencere": r["pencere"], "atesleme": r["atesleme"], "atesleme_orani_pct": round(oran, 3),
-             "istatistik": st, "iki_kat_maliyet_beklenti": iki_kat, "kapilar": kapilar,
-             "cikis_sebepleri": sebepler, "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+    sonuc = {**ortak, "istatistik": st, "iki_kat_maliyet_beklenti": iki_kat,
+             "kapilar": kapilar, "cikis_sebepleri": sebepler}
 
-    print()
     if all(kapilar.values()):
-        print("VERDİKT: KANIT VAR — kenar pozitif ve maliyete dayanıklı.")
+        print(f"\nVERDİKT [{sleeve}]: KANIT VAR — kenar pozitif ve maliyete dayanıklı.")
         print("  Terfi OTOMATİK DEĞİLDİR: lifecycle.gates() ayrıca DSR>0 ve PBO<0,5 ister;")
         print("  bunlar `scripts/cm_replay.py --evidence` ile üretilir.")
         if a.evidence:
-            from agi_trader.strategies.lifecycle import Lifecycle
             lc = Lifecycle()
-            lc.record_evidence(a.sleeve, {
+            lc.record_evidence(sleeve, {
                 "oos_expectancy": st["ort"], "ci_lower": st["ci95"][0],
                 "expectancy_cost_x2": iki_kat, "subperiod_consistent": tutarli,
                 "n_trades": st["n"], "source": "contrib_verify"})
-            g = lc.gates(a.sleeve)
-            print(f"  kanıt yazıldı · lifecycle kapıları: {'GEÇTİ' if g['passed'] else 'GEÇMEDİ'} → {g['checks']}")
-    else:
-        print("VERDİKT: GÖLGE — kenar kanıtlanmadı.")
-        print("  Bu bir RET DEĞİLDİR: katkı birleşebilir, sinyal üretir, EMİR VERMEZ ve")
-        print("  ölçülmeye devam eder. Kanıt pozitife dönerse terfi yolu açıktır.")
+            g = lc.gates(sleeve)
+            print(f"  kanıt yazıldı · lifecycle kapıları: "
+                  f"{'GEÇTİ' if g['passed'] else 'GEÇMEDİ'} → {g['checks']}")
+        return {**sonuc, "verdikt": "KANIT VAR"}
+
+    print(f"\nVERDİKT [{sleeve}]: GÖLGE — kenar kanıtlanmadı.")
+    print("  Bu bir RET DEĞİLDİR: katkı birleşebilir, sinyal üretir, EMİR VERMEZ ve")
+    print("  ölçülmeye devam eder. Kanıt pozitife dönerse terfi yolu açıktır.")
+    return {**sonuc, "verdikt": "GÖLGE"}
+
+
+def main() -> int:
+    _utf8()
+    ap = argparse.ArgumentParser(description="Topluluk katkısı doğrulayıcı")
+    ap.add_argument("--sleeve", required=True,
+                    help="katkı adı; virgülle birden fazla ('hepsi' = yüklü tüm katkılar)")
+    ap.add_argument("--days", type=float, default=7.0)
+    ap.add_argument("--symbols", default="BTC/USDT,ETH/USDT,SOL/USDT,DOGE/USDT,AVAX/USDT")
+    ap.add_argument("--venue", default="mexc")
+    ap.add_argument("--cost-pct", type=float, default=0.14, help="gidiş-dönüş maliyet (%%)")
+    ap.add_argument("--step", type=int, default=5, help="pencere adımı (bar)")
+    ap.add_argument("--evidence", action="store_true", help="kanıtı lifecycle kaydına yaz")
+    ap.add_argument("--json", default="", help="sonuçları bu dosyaya yaz")
+    a = ap.parse_args()
+
+    from agi_trader.strategies import contrib as CB, sleeves_fast as SF, committee as CM  # noqa: F401
+
+    sleeves = (CB.all_sleeves() if a.sleeve.strip().lower() in ("hepsi", "all", "*")
+               else [x.strip() for x in a.sleeve.split(",") if x.strip()])
+    print("═" * 78)
+    print(f"KATKI DOĞRULAYICI · {len(sleeves)} kurulum · {a.days} gün · {a.venue}")
+    print(f"  {', '.join(sleeves) or '(yok)'}")
+    print("═" * 78)
+    if not sleeves:
+        print("\nÖlçülecek katkı yok.")
+        return 3
+
+    gecen: List[tuple] = []
+    elenen: List[Dict] = []
+    for s_ in sleeves:
+        meta = _yukle_ve_statik(s_, CB)
+        if meta is None:
+            print(f"\nVERDİKT [{s_}]: REDDEDİLDİ — yükleme/statik aşaması geçilemedi.")
+            elenen.append({"sleeve": s_, "verdikt": "REDDEDİLDİ", "sebep": "yükleme/statik"})
+        else:
+            gecen.append((s_, meta))
+    if not gecen:
+        return 2
+
+    # ── VERİ BİR KEZ ─────────────────────────────────────────────────────
+    # Aynı pencere bütün kurulumlara uygulanır: hem borsayı gereksiz yormaz hem de
+    # kurulumlar BİRBİRİYLE karşılaştırılabilir olur (farklı pencere = farklı piyasa).
+    print(f"\n── VERİ ({a.days} gün, {a.venue}) — bir kez çekilir, hepsine uygulanır")
+    from agi_trader.auto.replay import HistoryFetcher
+    syms = [x.strip() for x in a.symbols.split(",") if x.strip()]
+    # Pencereyi SAATE yuvarla: aksi hâlde her koşum yeni bir önbellek anahtarı üretir
+    # ve aynı veri tekrar tekrar indirilir (hız sınırına bu yüzden takılmıştık).
+    end_ms = int(time.time() // 3600 * 3600 * 1000)
+    span = int(a.days * 24 * 3600 * 1000)
+    hf = HistoryFetcher(a.venue)
+    hist = {}
+    for s_ in syms:
+        try:
+            hist[(s_, "1m")] = hf.fetch(s_, "1m", end_ms - span, end_ms)
+            print(f"  {s_:12s} {len(hist[(s_, '1m')])} bar")
+        except Exception as e:
+            print(f"  {s_:12s} veri alınamadı: {type(e).__name__}: {e}")
+    if not hist:
+        print("\nVERDİKT: ÖLÇÜLEMEDİ — veri yok. (Ağ/hız sınırı olabilir; tekrar deneyin.)")
+        return 3
+
+    p_ = CM.CommitteeParams()
+    sonuclar = list(elenen)
+    for s_, meta in gecen:
+        sonuclar.append(_olc_ve_karar(s_, meta, hist, p_, a))
+
+    # ── ÖZET ─────────────────────────────────────────────────────────────
+    print("\n" + "═" * 78)
+    print("ÖZET — aynı pencere, aynı maliyet, aynı kapılar")
+    print("═" * 78)
+    print(f"{'kurulum':<26} {'ateşleme':>9} {'oran %':>8} {'ort net %':>10} {'t':>7} {'verdikt':>12}")
+    for r in sonuclar:
+        st = r.get("istatistik") or {}
+        print(f"{r['sleeve']:<26} {r.get('atesleme', '—'):>9} "
+              f"{r.get('atesleme_orani_pct', '—'):>8} {st.get('ort', '—'):>10} "
+              f"{st.get('t', '—'):>7} {r['verdikt']:>12}")
 
     if a.json:
         Path(a.json).parent.mkdir(parents=True, exist_ok=True)
-        Path(a.json).write_text(json.dumps(sonuc, ensure_ascii=False, indent=2), encoding="utf-8")
+        Path(a.json).write_text(json.dumps(sonuclar, ensure_ascii=False, indent=2),
+                                encoding="utf-8")
         print(f"\nJSON: {a.json}")
-    return 0
+    return 0 if any(r["verdikt"] != "REDDEDİLDİ" for r in sonuclar) else 2
 
 
 if __name__ == "__main__":

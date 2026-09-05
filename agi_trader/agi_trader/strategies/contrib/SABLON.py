@@ -20,10 +20,22 @@ Katkı süreci (ayrıntı: depo kökündeki CONTRIBUTING.md):
     htf_range, opening_range, vprofile, near_val, near_poc, fvg_bull, fvg_bear,
     manip_bull, engulf_bull, mss_up, ob_lo, ob_hi, in_ob, swing_hi_piv, swing_lo_piv
 
+KENDİ GÖSTERGENİZ (opsiyonel): `f`'te olmayan bir gösterge gerekiyorsa `fire`'a BEŞİNCİ
+parametre olarak `df` ekleyin — özellikleri üreten AYNI bar çerçevesini alırsınız ve
+göstergenizi kendiniz hesaplarsınız:
+
+    def fire(f, p, price, atr_abs, df):
+        adx = ...  # df["high"], df["low"], df["close"], df["volume"]
+
+Bu, gerçek açık kaynak stratejilerin çoğu için ZORUNLUDUR: DI±, MACD, SAR, mum
+formasyonları gibi göstergeler `f`'te yoktur. Beşinci parametrenin adı `df` OLMALIDIR;
+başka bir ad ya da altıncı parametre yükleyici tarafından reddedilir.
+
 KURALLAR (yükleyici bunları zorlar):
-  * Ağ isteği, dosya okuma, `time.sleep`, global durum YASAK — yalnız `f`'ten okuyun.
-  * Geleceğe bakmayın: `f` yalnız KAPANMIŞ barlardan türetilmiştir; `shift(-n)` gibi
-    ileri kaydırma yapan yardımcı yazmayın (doğrulayıcı bunu arar ve reddeder).
+  * Ağ isteği, dosya okuma, `time.sleep`, global durum YASAK — yalnız `f` ve `df`'den okuyun.
+  * Geleceğe bakmayın: `df` size sistemin geri kalanının gördüğü çerçevenin AYNISIDIR;
+    `shift(-n)` gibi ileri kaydırma yapan yardımcı yazmayın (doğrulayıcı bunu arar ve
+    reddeder). `df.iloc[-1]` son bardır — ondan sonrasına erişiminiz YOKTUR.
   * Spot hesapta SHORT üretilmez; `direction` "LONG" olmalıdır.
   * `size` 0–1 arasıdır ve zaten kelepçelenir.
 """

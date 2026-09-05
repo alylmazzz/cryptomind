@@ -60,8 +60,20 @@ def fire(f, p, price, atr_abs):
             "note": "neden tetiklendi"}
 ```
 
-`f`, komitenin özellik sözlüğüdür. **Yeni veri çekilmez** — aynı DataFrame'den türetilmiş
-özellikleri kullanırsınız. Kullanılabilir alanların listesi `SABLON.py` içindedir.
+`f`, komitenin özellik sözlüğüdür (92 alan; listesi `SABLON.py` içindedir).
+
+**`f`'te olmayan bir gösterge gerekiyorsa** `fire`'a beşinci parametre olarak `df` ekleyin —
+özellikleri üreten aynı bar çerçevesini alır ve göstergenizi kendiniz hesaplarsınız:
+
+```python
+def fire(f, p, price, atr_abs, df):
+    adx = ...        # df["high"], df["low"], df["close"], df["volume"]
+```
+
+Bu, gerçek açık kaynak stratejilerin çoğu için zorunludur: DI±, MACD, SAR, Supertrend, mum
+formasyonları `f`'te yoktur. Çerçeve, sistemin geri kalanının gördüğünün aynısıdır — yani
+`df` fazladan bilgi VERMEZ, yalnız kendi göstergenizi hesaplamanıza izin verir.
+**Yeni veri çekilmez**; ağ ve dosya erişimi yasaktır.
 
 Yükleyici şunları zorlar: ağ/dosya erişimi yok, ileriye bakış yok (`shift(-n)`), tohumsuz
 rastgelelik yok, global durum değişimi yok, spot'ta SHORT yok, `size` 0–1 arası.

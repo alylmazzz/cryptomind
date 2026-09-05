@@ -227,3 +227,51 @@ def test_katkilar_shadow_dogar():
             assert lc.can_trade(s, "paper") is False, "SHADOW katkı paper'da bile emir veremez"
     finally:
         (Path(__file__).parent / "_gecici_lifecycle.json").unlink(missing_ok=True)
+
+
+# ═══════════════════════════════════════════ df arayüzü (2026-09-05)
+# NEDEN EKLENDİ: `fire(f, p, price, atr_abs)` yalnız sabit bir özellik sözlüğü görüyordu ve
+# bu, gerçek açık kaynak stratejilerin ÇOĞUNUN portlanmasını imkânsız kılıyordu —
+# ADXMomentum DI±/MOM/SAR, Strategy002 CDLHAMMER, Supertrend ATR bantları ister; hiçbiri
+# `f`'te yok. Beşinci parametre `df`, katkının kendi göstergesini hesaplamasına izin verir.
+def test_df_isteyen_katkiya_cerceve_gecilir(contrib_dizini):
+    govde = (GECERLI_META % ("df_isteyen", "None")).replace(
+        "def fire(f, p, price, atr_abs):\n    return None",
+        "def fire(f, p, price, atr_abs, df):\n"
+        "    if df is None:\n"
+        "        return None\n"
+        "    return {'direction': 'LONG', 'size': 0.3, 'note': f'bar {len(df)}'}")
+    yaz(contrib_dizini, "df_isteyen", govde)
+    CB.load(set())
+    assert CB.CONTRIB["df_isteyen"]["df_ister"] is True
+
+    class _DF:
+        def __len__(self):
+            return 240
+    out = CB.fire_contrib_sleeves(_f(), ["df_isteyen"], object(), df=_DF())
+    assert len(out) == 1 and "bar 240" in out[0]["note"]
+    # df verilmezse 4 argümanla çağrılır → TypeError yerine sessizce tetiklenmez
+    CB.FIRE_ERRORS.clear()
+    assert CB.fire_contrib_sleeves(_f(), ["df_isteyen"], object(), df=None) == []
+    assert CB.FIRE_ERRORS, "df bekleyen katkı df'siz çağrılınca hata KAYDEDİLMELİ"
+
+
+def test_df_istemeyen_katkiya_cerceve_gecilmez(contrib_dizini):
+    """Geriye uyum: 4 parametreli katkılar df geçilse bile eskisi gibi çalışır."""
+    yaz(contrib_dizini, "dfsiz", GECERLI_META % ("dfsiz", '{"direction": "LONG", "size": 0.4}'))
+    CB.load(set())
+    assert CB.CONTRIB["dfsiz"]["df_ister"] is False
+    assert len(CB.fire_contrib_sleeves(_f(), ["dfsiz"], object(), df=object())) == 1
+
+
+@pytest.mark.parametrize("imza", [
+    "def fire(f, p, price, atr_abs, veri):",          # beşinci parametre `df` değil
+    "def fire(f, p, price, atr_abs, df, extra):",     # altıncı parametre yok
+])
+def test_gecersiz_besinci_parametre_reddedilir(contrib_dizini, imza):
+    govde = (GECERLI_META % ("kotu_imza", "None")).replace(
+        "def fire(f, p, price, atr_abs):", imza)
+    yaz(contrib_dizini, f"kotu_{abs(hash(imza)) % 9999}", govde)
+    CB.load(set())
+    assert "kotu_imza" not in CB.CONTRIB
+    assert any("beşinci" in h or "imza" in h for e in CB.LOAD_ERRORS for h in e["hatalar"])

@@ -96,37 +96,31 @@ def fire(f: Dict, p, price: float, atr_abs: float) -> Optional[Dict]:
                  f"({price:.6g} < {float(bb_lo):.6g}) → orta bant {hedef:.6g} hedefi"),
     }
 
-# ═══════════════════════════════════════════════════════════════════════════
-# BİZ ÖLÇTÜK — 2026-09-05T16:30:44Z · mexc · 7 gün · 5 parite (1 dk bar)
-# ═══════════════════════════════════════════════════════════════════════════
-# Bu blok SİLİNMEZ. Bu depoda çürütülen ölçüm de kayıttır: bir kurulumun neden
-# gölgede olduğu, sonradan bakan birinin yeniden ölçmek zorunda kalmaması için
-# burada durur.
+# ═════════════════════════════════════════════════════════════════════════
+# BİZ ÖLÇTÜK — 2026-09-05T17:22:55Z · mexc · 7 gün · 5 parite (1 dk bar)
+# ═════════════════════════════════════════════════════════════════════════
+# Bu blok SİLİNMEZ. Çürütülen ölçüm de kayıttır: bir kurulumun neden gölgede ya da
+# reddedilmiş olduğu, sonradan bakan birinin yeniden ölçmek zorunda kalmaması için
+# burada durur. Bütün katkılar AYNI 7 günlük pencerede, aynı maliyetle ölçüldü.
 #
-#   pencere 9600 · ateşleme 114 · oran %1.188  (makul band %0–15 ✓)
-#   ortalama net %-0.1013 · t -5.44 · CI95 [-0.1354, -0.0608] · kazanma %14.9
-#   alt-dönem: ilk yarı %-0.1404 · ikinci yarı %-0.0623  (ikisi de negatif)
-#   çıkış sebepleri: {'STOP': 95, 'HEDEF': 19}
-#   2× maliyette beklenti: %-0.2413
+#   pencere 9600 · ateşleme 91 · oran %0.948
+#   ortalama net %-0.1378 · t -10.63 · CI95 [-0.1602, -0.1101] · kazanma %9.9
+#   alt-dönem: ilk yarı %-0.1577 · ikinci yarı %-0.1184
+#   çıkış sebepleri: {'STOP': 78, 'HEDEF': 13}
+#   2× maliyette beklenti: %-0.2778
 #
-# VERDİKT: GÖLGE — kenar kanıtlanmadı. Sinyal üretir, EMİR VERMEZ.
-#
-# Ne öğrendik: t = -5.44 yalnızca "kenar yok" demiyor, kenarın bu bağlamda
-# GÜVENİLİR BİÇİMDE NEGATİF olduğunu söylüyor. Kazanma oranı %14.9 ve
-# çıkışların 95/114'i stop: 1 dakikalık barlarda "aşırı satım"
-# ortalamaya dönmüyor, düşüşün DEVAMI oluyor. Bu, özgün stratejinin 1 SAATLİK
-# bağlamıyla ilgili bir yargı DEĞİLDİR (bkz. yukarıdaki SAPMALAR notu) — burada
-# ölçülen şey, aynı giriş kuralının bu sistemin zaman dilimi ve maliyet yapısında
-# ne yaptığıdır. Kaynak deponun README'si zaten "kendi backtest'inizi koşun" diyordu.
+# VERDİKT: GÖLGE
+# GÖLGE bir RET DEĞİLDİR: kurulum sinyal üretir, EMİR VERMEZ ve ölçülmeye devam
+# eder. Kanıt pozitife dönerse terfi yolu açıktır.
 #
 # Yeniden ölçmek için:
 #   python scripts/cm_verify_contribution.py --sleeve bbandrsi_freqtrade --days 7
 MEASURED = {
     "window": "7 gün · mexc · 1 dk",
-    "n_windows": 9600, "n_fires": 114,
-    "fire_rate_pct": 1.188,
-    "mean_net_pct": -0.1013, "t_stat": -5.44, "ci95": [-0.1354, -0.0608],
-    "win_rate": 0.149, "exit_reasons": {'STOP': 95, 'HEDEF': 19},
-    "expectancy_cost_x2_pct": -0.2413,
+    "n_windows": 9600, "n_fires": 91,
+    "fire_rate_pct": 0.948,
+    "mean_net_pct": -0.1378, "t_stat": -10.63, "ci95": [-0.1602, -0.1101],
+    "win_rate": 0.099, "exit_reasons": {'STOP': 78, 'HEDEF': 13},
+    "expectancy_cost_x2_pct": -0.2778,
     "verdict": "SHADOW",
 }

@@ -72,6 +72,33 @@ alt-dönem tutarlı, DSR > 0, PBO < 0,5, n ≥ 30. **Ölçülmemiş = geçilmedi
 katkı da birleşebilir; gölgede ölçülmeye devam eder ve rejim değişirse fark edilir.
 Reddettiren şey kanıtsızlık değil, **abartılmış iddia** ve **öznel tanım**dır.
 
+### Ölçülmüş açık kaynak stratejiler
+
+Dört açık kaynak strateji ([freqtrade/freqtrade-strategies](https://github.com/freqtrade/freqtrade-strategies),
+GPL-3.0) katkı hattından geçirildi. Kurallar kaynaktan doğrulandı, **kod kopyalanmadı** —
+yalnız kural, bu deponun kendi araçlarıyla bağımsız yazıldı. Hepsi **aynı 7 günlük pencerede,
+aynı 5 paritede, aynı maliyetle** ölçüldü.
+
+| Kurulum | Ateşleme | Oran | Ort. net | t | Verdikt |
+|---|---:|---:|---:|---:|---|
+| BbandRsi | 91 | %0,95 | −%0,138 | −10,63 | **GÖLGE** |
+| ADXMomentum | 1699 | %17,5 | — | — | REDDEDİLDİ |
+| Supertrend (üçlü) | 1967 | %20,4 | — | — | REDDEDİLDİ |
+| ClucMay72018 | 0 | %0,00 | — | — | REDDEDİLDİ |
+
+**Hiçbiri kenar kanıtlayamadı.** Üçü ateşleme kapısında elendi — kenar ölçülmeden önce:
+ADXMomentum ve Supertrend piyasanın beşte birini "giriş" sayacak kadar seçicisiz; ClucMay
+hiç ateşlemedi. BbandRsi ölçüldü ve **t = −10,63** ile güvenilir biçimde negatif çıktı.
+
+Bunlar "bu stratejiler kötü" demek değildir. Hepsi 1 saatlik ya da 5 dakikalık barlar için
+yazılmış; burada 1 dakikalık barlarda ve bu maliyet yapısında ölçüldüler. Her dosyanın
+başındaki **SAPMALAR** notu farkı açıkça yazar, `MEASURED` bloğu da sonucu kalıcı tutar —
+çürütülen ölçüm bu depoda silinmez.
+
+ClucMay'in sıfır ateşlemesi ayrıca ölçülerek açıklandı: ilk hipotez ("zaman dilimi değişti")
+**çürütüldü** — `close < 0,985×bb_lower` koşulu 5 dakikalık barlarda da %0,000 sıklıkta.
+Sebep ölçek: Bollinger yarım genişliği %0,14–0,52 iken koşul bandın %1,5 altını istiyor.
+
 Ayrıntı: [CONTRIBUTING.md](CONTRIBUTING.md) · Öneri için
 [strateji şablonu](../../issues/new?template=strateji-onerisi.yml)
 
@@ -99,7 +126,7 @@ python trend_daemon.py --tracks base,aggressive,extreme,max
 Testler:
 
 ```bash
-cd agi_trader && python -m pytest tests/ -q      # 780 test
+cd agi_trader && python -m pytest tests/ -q      # 785 test
 ```
 
 ## Güvenlik notları

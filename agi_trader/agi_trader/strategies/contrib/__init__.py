@@ -120,7 +120,17 @@ def _fire_hatalari(fn) -> List[str]:
         return ["`fire` imzası okunamadı"]
     if par[:4] != ["f", "p", "price", "atr_abs"]:
         return [f"`fire` imzası (f, p, price, atr_abs) olmalı — gelen: ({', '.join(par)})"]
+    if len(par) > 5 or (len(par) == 5 and par[4] != "df"):
+        return [f"beşinci parametre yalnız `df` olabilir — gelen: ({', '.join(par)})"]
     return []
+
+
+def _df_ister(fn) -> bool:
+    """`fire` beşinci parametre `df` tanımladıysa kendi göstergesini hesaplamak istiyordur."""
+    try:
+        return list(inspect.signature(fn).parameters)[:5] == ["f", "p", "price", "atr_abs", "df"]
+    except (TypeError, ValueError):
+        return False
 
 
 def load(mevcut_adlar: Optional[set] = None) -> Dict[str, Dict]:
@@ -149,7 +159,8 @@ def load(mevcut_adlar: Optional[set] = None) -> Dict[str, Dict]:
         if hatalar:
             LOAD_ERRORS.append({"modul": m.name, "hatalar": hatalar})
             continue
-        CONTRIB[str(meta["name"])] = {"meta": dict(meta), "fire": mod.fire, "modul": m.name}
+        CONTRIB[str(meta["name"])] = {"meta": dict(meta), "fire": mod.fire, "modul": m.name,
+                                      "df_ister": _df_ister(mod.fire)}
     return CONTRIB
 
 
@@ -195,8 +206,14 @@ def sources() -> List[Dict]:
 
 # ------------------------------------------------------------------------- tetikleme
 def fire_contrib_sleeves(f: Dict, allowed: List[str], p, allow_short: bool = False,
-                         now_ts: Optional[float] = None) -> List[Dict]:
-    """Katkı kurulumlarını çalıştır. Her biri YALITILMIŞ — biri patlarsa diğerleri sürer."""
+                         now_ts: Optional[float] = None, df=None) -> List[Dict]:
+    """Katkı kurulumlarını çalıştır. Her biri YALITILMIŞ — biri patlarsa diğerleri sürer.
+
+    `df`: özellikleri üreten AYNI bar çerçevesi. Yalnız `fire` beşinci parametre `df`
+    tanımlayan katkılara geçilir — böylece `f`'te bulunmayan göstergeleri (DI±, MACD,
+    SAR, mum formasyonları …) kendileri hesaplayabilir. Çerçeve `f` ile aynı olduğu için
+    katkı, sistemin geri kalanından FAZLA bilgi görmez; ileriye bakış ayrıca statik
+    denetimle (shift(-n)) kollanır."""
     out: List[Dict] = []
     if not f.get("ok") or not CONTRIB:
         return out
@@ -209,7 +226,8 @@ def fire_contrib_sleeves(f: Dict, allowed: List[str], p, allow_short: bool = Fal
         if ad not in izin:
             continue
         try:
-            r = v["fire"](f, p, price, atr_abs)
+            r = (v["fire"](f, p, price, atr_abs, df) if (v.get("df_ister") and df is not None)
+                 else v["fire"](f, p, price, atr_abs))
         except Exception as e:
             # SESSİZ YUTMA YASAK: katkının patladığı, "sinyal yok"tan ayırt edilebilmeli.
             FIRE_ERRORS.append({"sleeve": ad, "hata": f"{type(e).__name__}: {e}", "ts": now_ts})

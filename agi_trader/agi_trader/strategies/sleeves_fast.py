@@ -285,13 +285,13 @@ def relative_strength_ranks(cross: Dict[str, Dict]) -> Dict[str, float]:
 
 # ---------------------------------------------------------------- sleeve tetikleyicileri
 def fire_sleeves(f: Dict, allowed: List[str], news: Optional[Dict], p, allow_short: bool = False,
-                 now_ts: Optional[float] = None) -> List[Dict]:
+                 now_ts: Optional[float] = None, df=None) -> List[Dict]:
     """Ek sleeve'ler (committee.triggers'ın yanında). Yalnız `allowed` listesindekiler."""
     out: List[Dict] = []
     if not f.get("ok"):
         return out
     out += SV.fire_video_sleeves(f, allowed, p, allow_short, now_ts)     # video kaynaklı kurulumlar
-    out += CB.fire_contrib_sleeves(f, allowed, p, allow_short, now_ts)  # topluluk katkıları (SHADOW)
+    out += CB.fire_contrib_sleeves(f, allowed, p, allow_short, now_ts, df)  # topluluk katkıları (SHADOW)
     up = bool(f.get("bar_up"))
     rsi = float(f.get("rsi") or 50.0)
     atr = float(f.get("atr_pct") or 0.3)

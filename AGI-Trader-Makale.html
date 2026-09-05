@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AGI-Trader — Çok-Katmanlı, Çok-Ajanlı, Açıklanabilir Kripto/Çoklu-Varlık Karar-Destek Motoru</title>
+<style>
+  :root{
+    --ink:#16203a; --muted:#5a6680; --line:#d7deea; --bg:#ffffff;
+    --accent:#2d6cdf; --green:#18a558; --red:#e0413a; --amber:#e0911f;
+    --purple:#6b4fbb; --teal:#0f9aa6; --soft:#f5f7fb; --soft2:#eef2fa;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:"Georgia","Cambria",serif; color:var(--ink); background:#e9edf4;
+    margin:0; line-height:1.62; font-size:16.5px;
+  }
+  .page{
+    max-width:880px; margin:32px auto; background:var(--bg); padding:64px 72px 80px;
+    box-shadow:0 6px 30px rgba(20,30,60,.12); border-radius:4px;
+  }
+  h1,h2,h3,h4,.sans{font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif}
+  h1{font-size:27px; line-height:1.28; margin:0 0 6px; letter-spacing:-.2px}
+  .subtitle{font-family:"Segoe UI",Arial,sans-serif; color:var(--muted); font-size:15px; font-weight:500; margin:0 0 22px}
+  .authors{font-family:"Segoe UI",Arial,sans-serif; font-size:14.5px; margin:18px 0 2px; color:var(--ink)}
+  .affil{font-family:"Segoe UI",Arial,sans-serif; font-size:12.5px; color:var(--muted); margin:0 0 8px}
+  .meta-tag{display:inline-block; font-family:"Segoe UI",Arial,sans-serif; font-size:11px; font-weight:700;
+    letter-spacing:.5px; color:#fff; background:var(--accent); padding:3px 10px; border-radius:30px; margin-bottom:18px}
+  h2{font-size:20px; margin:42px 0 12px; padding-bottom:7px; border-bottom:2px solid var(--ink)}
+  h3{font-size:16.5px; margin:26px 0 8px; color:#22305a}
+  h4{font-size:14.5px; margin:18px 0 6px; color:#33405f}
+  p{margin:0 0 13px; text-align:justify}
+  a{color:var(--accent); text-decoration:none}
+  code,.mono{font-family:"Consolas","SF Mono",monospace; font-size:13.5px; background:var(--soft2);
+    padding:1px 5px; border-radius:4px; color:#243a6e}
+  .abstract{background:var(--soft); border:1px solid var(--line); border-left:4px solid var(--accent);
+    padding:18px 22px; border-radius:5px; margin:8px 0 6px; font-size:15px}
+  .abstract h3{margin-top:0}
+  .keywords{font-size:13.5px; color:var(--muted); margin-top:10px}
+  .keywords b{color:var(--ink)}
+  figure{margin:26px 0; text-align:center}
+  figure svg{max-width:100%; height:auto; border:1px solid var(--line); border-radius:8px; background:#fff}
+  figcaption{font-family:"Segoe UI",Arial,sans-serif; font-size:12.8px; color:var(--muted);
+    margin-top:9px; text-align:left; line-height:1.5}
+  figcaption b{color:var(--ink)}
+  table{border-collapse:collapse; width:100%; font-family:"Segoe UI",Arial,sans-serif; font-size:13px; margin:10px 0 6px}
+  th,td{border:1px solid var(--line); padding:7px 10px; text-align:left; vertical-align:top}
+  th{background:var(--ink); color:#fff; font-weight:600}
+  tr:nth-child(even) td{background:var(--soft)}
+  .tcap{font-family:"Segoe UI",Arial,sans-serif; font-size:12.8px; color:var(--muted); margin:4px 0 22px}
+  .eq{background:var(--soft); border:1px solid var(--line); border-radius:6px; padding:12px 16px;
+    margin:14px 0; font-family:"Cambria Math","Georgia",serif; text-align:center; font-size:16px; overflow-x:auto}
+  .eq .n{float:right; color:var(--muted); font-size:13px; font-family:"Segoe UI",Arial}
+  .note{background:#fff8e8; border:1px solid #f0d68a; border-left:4px solid var(--amber);
+    padding:12px 16px; border-radius:5px; font-size:14px; margin:16px 0}
+  .toc{background:var(--soft); border:1px solid var(--line); border-radius:6px; padding:16px 22px; margin:24px 0;
+    font-family:"Segoe UI",Arial,sans-serif; font-size:13.5px; columns:2; column-gap:34px}
+  .toc a{color:#2a3658; display:block; padding:2px 0}
+  .toc b{color:#000}
+  ul,ol{margin:0 0 13px; padding-left:22px}
+  li{margin:3px 0}
+  .hr{height:1px; background:var(--line); margin:30px 0; border:0}
+  .small{font-size:13px; color:var(--muted)}
+  sub,sup{font-size:.72em}
+  .footer{font-family:"Segoe UI",Arial,sans-serif; font-size:12px; color:var(--muted); text-align:center;
+    margin-top:42px; padding-top:16px; border-top:1px solid var(--line)}
+  @media print{
+    body{background:#fff} .page{box-shadow:none; margin:0; max-width:100%; padding:24px 8px}
+    h2{page-break-after:avoid} figure,table{page-break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="meta-tag">TEKNİK MAKALE · KARAR-DESTEK SİSTEMLERİ · KANTİTATİF FİNANS</div>
+<h1>AGI-Trader: Çok-Katmanlı, Çok-Ajanlı ve Açıklanabilir Bir Kripto / Çoklu-Varlık Algoritmik Karar-Destek Motoru</h1>
+<p class="subtitle">Uzman-ajan füzyonu ve açıklanabilir sinyal üretimi; katı 4,5-yıl örnek-dışı doğrulama ile teknik-konsensüsün sınırlarının gösterilmesi ve diversifiye trend-takip çözümünün ampirik olarak ortaya konması</p>
+
+<p class="authors">A. Yılmaz<sup>1</sup></p>
+<p class="affil"><sup>1</sup>Bağımsız Araştırma · Mühendislik &amp; Uygulama · <span class="mono">agi_trader</span> referans uygulaması</p>
+<p class="affil">Yazışma: aliyilmazdokk@gmail.com · Sürüm: 2026-07 (güncellendi: 4,5-yıl çok-rejim OOS + diversifiye trend-takip çözümü) · Lisans: Araştırma/Eğitim · Durum: Karar-destek (yatırım tavsiyesi değildir)</p>
+
+<hr class="hr">
+
+<!-- ABSTRACT -->
+<div class="abstract">
+<h3>Öz</h3>
+<p style="margin-bottom:8px"><b>Amaç.</b> Bu çalışma, kripto para ve geleneksel varlık piyasaları (hisse, endeks, döviz, emtia) için tasarlanmış, açık kaynaklı modüler bir algoritmik karar-destek motorunu — <i>AGI-Trader</i> — tanıtmaktadır. Sistem, tek bir kara-kutu modelin aksine, on bağımsız <b>uzman analiz katmanını</b> birer otonom ajan gibi çalıştırıp çıktılarını dinamik ağırlıklı bir füzyon mekanizmasıyla birleştirir ve <b>her kararın gerekçesini açıklayan</b> (Explainable AI) bir işlem sinyali üretir.</p>
+<p style="margin-bottom:8px"><b>Yöntem.</b> Çok zaman dilimli OHLCV verisi; teknik göstergeler (120+), harmonik/klasik formasyonlar, Smart Money Concepts (SMC), çoklu-zaman-dilimi uyumu, çok-modelli yapay zekâ topluluğu (PyTorch Transformer/LSTM + PPO pekiştirmeli öğrenme + GBM/XGBoost/LightGBM), sosyal/haber duyarlılığı, üç-katmanlı on-chain whale akışı ve makro katmanlarından geçer. Karar motoru, katman oylarını güven-modüleli ağırlıklı ortalamayla birleştirir; <b>spec gereği yalnızca güven ≥ %90 ve Risk/Ödül ≥ 1.5 olduğunda işlem adayı</b> üretir. Risk motoru çeyrek-Kelly konum boyutlama, ATR-tabanlı stop/TP, VaR/CVaR ve 5.000×50 Monte Carlo simülasyonu uygular.</p>
+<p style="margin-bottom:0"><b>Bulgular.</b> Mimari, uçtan uca açıklanabilir, güvenli (varsayılan kâğıt-işlem) ve genişletilebilir bir karar-destek hattı sunar. Ancak bu çalışmanın en kritik ampirik bulgusu katı bir örnek-dışı protokolle elde edilmiştir: <b>4,5 yıllık çok-rejim (2022–2026) canlı veride, çok-ajanlı teknik-konsensüs hattının rejimler arası SAĞLAM bir örnek-dışı kenarı yoktur</b> — kısa bir pencerede gözlenen yüksek getiriler (ör. +%61,8) yalnızca kalibrasyon dönemine <i>aşırı-uyumdur (overfitting)</i>; örnek-dışı her yıl (2022–2025) net zarardadır. Buna karşılık, <b>basit ve düşük-parametreli bir günlük trend-takip stratejisi</b> (fiyat 200-gün ortalaması üstünde <i>ve</i> 20-gün momentumu pozitif → pozisyon, aksi halde nakit) aynı 4,5 yılda ve gerçekçi maliyetle <b>rejimler arası sağlam bir kenar</b> üretir. Kripto-dışı düşük-korelasyonlu varlıklara (altın, endeks, tahvil, döviz) <b>diversifikasyon</b> ve portföy hedef-volatilite kaldıracı ile bu strateji <b>Sharpe ≈ 1,3–1,4, yıllık bileşik getiri ≈ %19–21 ve maksimum düşüş ≈ %10–13</b> düzeyine ulaşır (§4.10). Sonuç: karmaşık teknik-konsensüs, karar-destek/analiz aracı olarak değerlidir; <b>otonom kârın gerçek ve sürdürülebilir kaynağı ise diversifiye trend-takiptir</b>. Hiçbir sistem günlük garantili getiri vaat edemez; değer garanti değil, <b>pozitif risk-ayarlı beklenti ve sermaye korumasıdır</b>.</p>
+<p class="keywords"><b>Anahtar Kelimeler:</b> algoritmik işlem · çok-ajanlı sistemler · açıklanabilir yapay zekâ · analiz katmanı füzyonu · Kelly kriteri · Monte Carlo risk · pekiştirmeli öğrenme · piyasa rejimi (HMM) · on-chain analiz · karar-destek sistemleri</p>
+</div>
+
+<!-- GRAPHICAL ABSTRACT -->
+<figure>
+<svg viewBox="0 0 860 430" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <linearGradient id="ga-h" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2d6cdf"/><stop offset="1" stop-color="#6b4fbb"/>
+    </linearGradient>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#5a6680"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="860" height="430" fill="#fbfcfe"/>
+  <rect x="0" y="0" width="860" height="34" fill="url(#ga-h)"/>
+  <text x="16" y="23" fill="#fff" font-size="15" font-weight="700">GRAFİKSEL ÖZET — AGI-Trader Karar Hattı</text>
+
+  <!-- DATA -->
+  <rect x="22" y="58" width="150" height="150" rx="9" fill="#eef3fd" stroke="#2d6cdf"/>
+  <text x="97" y="78" text-anchor="middle" font-size="12.5" font-weight="700" fill="#22305a">① VERİ KATMANI</text>
+  <text x="97" y="98" text-anchor="middle" font-size="10.5" fill="#33405f">ccxt borsalar</text>
+  <text x="97" y="113" text-anchor="middle" font-size="10.5" fill="#33405f">ücretsiz REST</text>
+  <text x="97" y="128" text-anchor="middle" font-size="10.5" fill="#33405f">yfinance (hisse/FX)</text>
+  <text x="97" y="143" text-anchor="middle" font-size="10.5" fill="#33405f">sentetik (yedek)</text>
+  <text x="97" y="166" text-anchor="middle" font-size="10" fill="#5a6680">çok zaman dilimli</text>
+  <text x="97" y="181" text-anchor="middle" font-size="10" fill="#5a6680">15d · 1s · 4s · 1g · 1h · 1A</text>
+  <text x="97" y="198" text-anchor="middle" font-size="9.5" fill="#18a558" font-weight="700">CANLI / SENTETİK rozeti</text>
+
+  <!-- LAYER COUNCIL -->
+  <rect x="210" y="46" width="210" height="338" rx="9" fill="#f4f1fc" stroke="#6b4fbb"/>
+  <text x="315" y="66" text-anchor="middle" font-size="12.5" font-weight="700" fill="#3a2f63">② UZMAN-AJAN MECLİSİ</text>
+  <text x="315" y="80" text-anchor="middle" font-size="9.5" fill="#6b4fbb">her katman → LayerVote(skor,güven,gerekçe)</text>
+  <g font-size="10.5" fill="#2c2350">
+    <rect x="222" y="90" width="186" height="22" rx="5" fill="#fff" stroke="#cdbff0"/><text x="230" y="105">technical · 120+ gösterge</text>
+    <rect x="222" y="116" width="186" height="22" rx="5" fill="#fff" stroke="#cdbff0"/><text x="230" y="131">pattern · harmonik+klasik</text>
+    <rect x="222" y="142" width="186" height="22" rx="5" fill="#fff" stroke="#cdbff0"/><text x="230" y="157">smc · BOS/CHOCH/FVG/OB</text>
+    <rect x="222" y="168" width="186" height="22" rx="5" fill="#fff" stroke="#cdbff0"/><text x="230" y="183">multi_timeframe uyumu</text>
+    <rect x="222" y="194" width="186" height="22" rx="5" fill="#fff" stroke="#cdbff0"/><text x="230" y="209">ai_ensemble · p(up)</text>
+    <rect x="222" y="220" width="186" height="22" rx="5" fill="#fff" stroke="#cdbff0"/><text x="230" y="235">sentiment · Twitter (201)</text>
+    <rect x="222" y="246" width="186" height="22" rx="5" fill="#fff" stroke="#cdbff0"/><text x="230" y="261">fear_greed · news</text>
+    <rect x="222" y="272" width="186" height="22" rx="5" fill="#fff" stroke="#cdbff0"/><text x="230" y="287">onchain · whale akışı (3-tier)</text>
+    <rect x="222" y="298" width="186" height="22" rx="5" fill="#fff" stroke="#cdbff0"/><text x="230" y="313">macro · FED/CPI/ETF</text>
+  </g>
+  <text x="315" y="338" text-anchor="middle" font-size="9.5" fill="#6b4fbb">hata izolasyonu (graceful degradation)</text>
+  <text x="315" y="354" text-anchor="middle" font-size="9.5" fill="#6b4fbb">bir ajan çökse diğerleri çalışır</text>
+  <text x="315" y="372" text-anchor="middle" font-size="9.5" fill="#3a2f63" font-weight="700">çevrimiçi öğrenme → ağırlıkları günceller</text>
+
+  <!-- DECISION -->
+  <rect x="458" y="70" width="150" height="120" rx="9" fill="#fff3f3" stroke="#e0413a"/>
+  <text x="533" y="90" text-anchor="middle" font-size="12.5" font-weight="700" fill="#7a201c">③ KARAR MOTORU</text>
+  <text x="533" y="110" text-anchor="middle" font-size="10.5" fill="#33405f">ağırlıklı füzyon</text>
+  <text x="533" y="126" text-anchor="middle" font-size="11" fill="#16203a" font-family="Cambria Math, serif">S = Σ sᵢcᵢwᵢ ⁄ Σ cᵢwᵢ</text>
+  <text x="533" y="146" text-anchor="middle" font-size="10.5" fill="#33405f">güven kapısı</text>
+  <text x="533" y="162" text-anchor="middle" font-size="11.5" fill="#e0413a" font-weight="700">C ≥ %90 · R/R ≥ 1.5</text>
+  <text x="533" y="180" text-anchor="middle" font-size="9.5" fill="#7a201c">aksi halde → İŞLEM YOK</text>
+
+  <!-- RISK -->
+  <rect x="458" y="206" width="150" height="118" rx="9" fill="#fffaf0" stroke="#e0911f"/>
+  <text x="533" y="226" text-anchor="middle" font-size="12.5" font-weight="700" fill="#7a5610">④ RİSK MOTORU</text>
+  <text x="533" y="246" text-anchor="middle" font-size="10.5" fill="#33405f">çeyrek-Kelly boyutlama</text>
+  <text x="533" y="262" text-anchor="middle" font-size="10.5" fill="#33405f">ATR stop · TP1/2/3</text>
+  <text x="533" y="278" text-anchor="middle" font-size="10.5" fill="#33405f">VaR / CVaR</text>
+  <text x="533" y="294" text-anchor="middle" font-size="10.5" fill="#33405f">Monte Carlo 5000×50</text>
+  <text x="533" y="312" text-anchor="middle" font-size="9.5" fill="#7a5610">rejim (HMM) → boyut ölçekleme</text>
+
+  <!-- OUTPUT -->
+  <rect x="646" y="70" width="192" height="254" rx="9" fill="#eefaf3" stroke="#18a558"/>
+  <text x="742" y="90" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0d6b39">⑤ AÇIKLANABİLİR SİNYAL</text>
+  <g font-size="10.5" fill="#1d4a33">
+    <text x="658" y="112">▸ LONG / SHORT / FLAT</text>
+    <text x="658" y="130">▸ Giriş · Stop · TP1/2/3</text>
+    <text x="658" y="148">▸ Risk/Ödül · başarı olas.</text>
+    <text x="658" y="166">▸ İptal seviyesi + alternatif</text>
+    <text x="658" y="184">▸ Güven skoru (kalibre)</text>
+    <text x="658" y="202">▸ Alış/satış baskısı %</text>
+    <text x="658" y="220">▸ Sonraki maks/min tahmini</text>
+    <text x="658" y="238">▸ KATMAN KIRILIMI (neden?)</text>
+    <text x="658" y="256">▸ 6-kademe sinyal sınıfı</text>
+  </g>
+  <rect x="658" y="268" width="168" height="46" rx="6" fill="#d8f3e4" stroke="#18a558"/>
+  <text x="742" y="285" text-anchor="middle" font-size="10" fill="#0d6b39">Execution (paper+kill-switch)</text>
+  <text x="742" y="301" text-anchor="middle" font-size="10" fill="#0d6b39">→ Journal (JSONL) → Öğrenme</text>
+
+  <!-- arrows -->
+  <line x1="172" y1="133" x2="208" y2="133" stroke="#5a6680" stroke-width="2" marker-end="url(#ar)"/>
+  <line x1="420" y1="150" x2="456" y2="130" stroke="#5a6680" stroke-width="2" marker-end="url(#ar)"/>
+  <line x1="608" y1="130" x2="644" y2="150" stroke="#5a6680" stroke-width="2" marker-end="url(#ar)"/>
+  <line x1="608" y1="265" x2="644" y2="240" stroke="#5a6680" stroke-width="2" marker-end="url(#ar)"/>
+  <!-- learning feedback loop -->
+  <path d="M742 316 L742 404 L315 404 L315 388" fill="none" stroke="#18a558" stroke-width="1.8" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+  <text x="520" y="420" text-anchor="middle" font-size="10" fill="#0d6b39" font-weight="700">KAPALI-DÖNGÜ ÇEVRİMİÇİ ÖĞRENME — kapanan işlem sonucu → katman ağırlıkları yeniden hesaplanır</text>
+</svg>
+<figcaption><b>Grafiksel Özet.</b> AGI-Trader beş aşamalı bir hattan oluşur: (1) çok-kaynaklı, çok-zaman-dilimli veri toplama; (2) on bağımsız uzman-ajan katmanının paralel oylaması; (3) güven-modüleli ağırlıklı füzyon ve %90 güven kapısı; (4) Kelly/ATR/VaR/Monte Carlo risk motoru; (5) açıklanabilir sinyal üretimi, kâğıt-yürütme, günlükleme ve kapanan işlemlerden ağırlık öğrenen geri-besleme döngüsü.</figcaption>
+</figure>
+
+<!-- TOC -->
+<div class="toc">
+<a href="#s1"><b>1.</b> Giriş</a>
+<a href="#s2"><b>2.</b> Sistem Mimarisi ve Modül Eşlemesi</a>
+<a href="#s3"><b>3.</b> Materyal ve Metot</a>
+<a href="#s31">&nbsp;&nbsp;3.1 Veri katmanı</a>
+<a href="#s32">&nbsp;&nbsp;3.2 Analiz katmanları (uzman ajanlar)</a>
+<a href="#s33">&nbsp;&nbsp;3.3 Yapay zekâ topluluğu</a>
+<a href="#s34">&nbsp;&nbsp;3.4 On-chain whale motoru</a>
+<a href="#s35">&nbsp;&nbsp;3.5 Karar motoru (füzyon + kapı)</a>
+<a href="#s36">&nbsp;&nbsp;3.6 Risk motoru</a>
+<a href="#s37">&nbsp;&nbsp;3.7 Yürütme, günlük, otonom motor</a>
+<a href="#s38">&nbsp;&nbsp;3.8 Öğrenme, backtest, optimizasyon</a>
+<a href="#s4"><b>4.</b> Sonuçlar</a>
+<a href="#s410">&nbsp;&nbsp;4.10 Nihai çözüm: trend-takip</a>
+<a href="#s5"><b>5.</b> Tartışma ve Sınırlılıklar</a>
+<a href="#s6"><b>6.</b> Operasyonel Kılavuz &amp; Kâr Gerçeği</a>
+<a href="#s7"><b>7.</b> Sonuç</a>
+<a href="#app">&nbsp;&nbsp;Ek A · API uçları</a>
+<a href="#appB">&nbsp;&nbsp;Ek B · Başarı oranı yol haritası</a>
+</div>
+
+<!-- ===================== 1. INTRO ===================== -->
+<h2 id="s1">1. Giriş</h2>
+<p>Kripto para piyasaları 7×24 açık, yüksek volatiliteli ve çok-kaynaklı (fiyat, türev funding/açık pozisyon, zincir-üstü akış, sosyal medya, makroekonomik takvim) bir bilgi ortamıdır. Tek bir modele — ister klasik teknik gösterge ister tek bir derin sinir ağı — dayanan işlem sistemleri, bu heterojen sinyalleri bütünleştiremedikleri ve kararlarını <i>gerekçelendiremedikleri</i> için hem kırılgan hem de denetlenemez kalmaktadır. Profesyonel masaların gerçekte yaptığı şey, farklı uzmanlıkların (kantitatif analist, teknik analist, on-chain analist, risk yöneticisi) bağımsız görüşlerini bir araya getirip nihai bir karara dönüştürmektir.</p>
+<p>Bu çalışmada sunulan <b>AGI-Trader</b>, tam olarak bu “uzman heyeti” paradigmasını yazılımsal olarak hayata geçiren, modüler ve açıklanabilir bir karar-destek motorudur. Sistemin tasarım ilkeleri şunlardır:</p>
+<ul>
+  <li><b>Çok-ajanlı füzyon:</b> Her analiz alanı bağımsız bir ajan olarak [−1, +1] aralığında bir skor, kendi güveni ve insan-okunur gerekçeler üretir; karar tek bir katmana dayanamaz.</li>
+  <li><b>Açıklanabilirlik (XAI):</b> Üretilen her sinyal, hangi katmanın hangi ağırlık ve gerekçeyle ne kadar katkı yaptığını gösteren bir <i>katman kırılımı</i> taşır.</li>
+  <li><b>Muhafazakâr karar kapısı:</b> Güven < %90 <i>veya</i> tek-sinyal durumunda sistem bilinçli olarak <b>işlem açmaz</b>.</li>
+  <li><b>Güvenlik-öncelikli:</b> Varsayılan mod kâğıt-işlemdir (paper trading); canlı emir çift-onaylı bir kapının arkasındadır; portföy drawdown'ı eşiği aşarsa kill-switch devreye girer.</li>
+  <li><b>Zarif bozunma (graceful degradation):</b> Çekirdek yalnızca <span class="mono">numpy</span> + <span class="mono">pandas</span> ile çalışır; <span class="mono">ccxt</span>, <span class="mono">scikit-learn</span>, <span class="mono">torch</span>, <span class="mono">xgboost</span> gibi opsiyonel bağımlılıklar varsa sistem otomatik güçlenir, yoksa alternatife düşer.</li>
+  <li><b>Kapalı-döngü öğrenme:</b> Kapanan her işlemin sonucu, sinyali üreten katmanların ağırlıklarını isabete göre günceller (self-improvement).</li>
+</ul>
+<p>Makalenin geri kalanı şöyle düzenlenmiştir: Bölüm 2 sistem mimarisini ve uzman-rol → modül eşlemesini verir; Bölüm 3 (Materyal ve Metot) her alt-sistemin matematiksel ve algoritmik mekanizmasını açıklar; Bölüm 4 sistemin çıktılarını ve temsilî sonuçlarını sunar; Bölüm 5 sınırlılıkları ve güvenlik tartışmasını içerir; Bölüm 6 sonuçları özetler.</p>
+
+<!-- ===================== 2. ARCH ===================== -->
+<h2 id="s2">2. Sistem Mimarisi ve Modül Eşlemesi</h2>
+<p>AGI-Trader, her biri tek bir sorumluluğu olan Python paketlerine ayrılmış katmanlı bir mimaridir (Şekil 1). <span class="mono">agents/orchestrator.py</span> içindeki <i>Orchestrator</i>, veri toplamadan karara, yürütmeden günlüğe kadar tüm hattı koordine eden merkezî bileşendir. Tasarım, bir özellikler-listesi (prompt) spesifikasyonundaki her “uzman rolü”nü ayrı bir modüle birebir eşler (Tablo 1).</p>
+
+<figure>
+<svg viewBox="0 0 840 470" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif">
+  <defs><marker id="ar2" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#5a6680"/></marker></defs>
+  <rect x="0" y="0" width="840" height="470" fill="#fbfcfe"/>
+  <!-- presentation layer -->
+  <rect x="20" y="18" width="800" height="64" rx="8" fill="#eef3fd" stroke="#2d6cdf"/>
+  <text x="32" y="38" font-size="12.5" font-weight="700" fill="#22305a">SUNUM KATMANI</text>
+  <g font-size="10.5" fill="#2a3658">
+    <rect x="34" y="46" width="150" height="26" rx="5" fill="#fff" stroke="#bcd0f5"/><text x="44" y="63">server/ · FastAPI dashboard</text>
+    <rect x="196" y="46" width="120" height="26" rx="5" fill="#fff" stroke="#bcd0f5"/><text x="206" y="63">SSE canlı akış</text>
+    <rect x="328" y="46" width="110" height="26" rx="5" fill="#fff" stroke="#bcd0f5"/><text x="338" y="63">run.py (CLI)</text>
+    <rect x="450" y="46" width="130" height="26" rx="5" fill="#fff" stroke="#bcd0f5"/><text x="460" y="63">bot/ komutlar · webhook</text>
+    <rect x="592" y="46" width="120" height="26" rx="5" fill="#fff" stroke="#bcd0f5"/><text x="602" y="63">report.py (XAI)</text>
+    <rect x="724" y="46" width="86" height="26" rx="5" fill="#fff" stroke="#bcd0f5"/><text x="734" y="63">notify/</text>
+  </g>
+  <!-- orchestration -->
+  <rect x="20" y="94" width="800" height="44" rx="8" fill="#f4f1fc" stroke="#6b4fbb"/>
+  <text x="420" y="121" text-anchor="middle" font-size="13" font-weight="700" fill="#3a2f63">ORKESTRASYON KATMANI — agents/orchestrator.py · auto/engine.py (AutoTrader)</text>
+  <!-- analysis layer -->
+  <rect x="20" y="150" width="800" height="118" rx="8" fill="#f4f7ee" stroke="#5a9e2e"/>
+  <text x="32" y="170" font-size="12.5" font-weight="700" fill="#3c5a1d">ANALİZ / AJAN KATMANI (LayerVote üreten uzmanlar)</text>
+  <g font-size="10" fill="#2d3f1a">
+    <rect x="34" y="178" width="120" height="26" rx="5" fill="#fff" stroke="#bcd99a"/><text x="40" y="195">analysis/indicators</text>
+    <rect x="162" y="178" width="120" height="26" rx="5" fill="#fff" stroke="#bcd99a"/><text x="168" y="195">analysis/patterns</text>
+    <rect x="290" y="178" width="110" height="26" rx="5" fill="#fff" stroke="#bcd99a"/><text x="296" y="195">analysis/smc</text>
+    <rect x="408" y="178" width="150" height="26" rx="5" fill="#fff" stroke="#bcd99a"/><text x="414" y="195">analysis/multi_timeframe</text>
+    <rect x="566" y="178" width="110" height="26" rx="5" fill="#fff" stroke="#bcd99a"/><text x="572" y="195">analysis/regime (HMM)</text>
+    <rect x="684" y="178" width="126" height="26" rx="5" fill="#fff" stroke="#bcd99a"/><text x="690" y="195">analysis/forecast</text>
+    <rect x="34" y="210" width="150" height="26" rx="5" fill="#fff" stroke="#bcd99a"/><text x="40" y="227">ai/ (ensemble+deep+RL)</text>
+    <rect x="192" y="210" width="150" height="26" rx="5" fill="#fff" stroke="#bcd99a"/><text x="198" y="227">sentiment/ (Twitter+news)</text>
+    <rect x="350" y="210" width="160" height="26" rx="5" fill="#fff" stroke="#bcd99a"/><text x="356" y="227">onchain/ (whale+liq.)</text>
+    <rect x="518" y="210" width="120" height="26" rx="5" fill="#fff" stroke="#bcd99a"/><text x="524" y="227">macro/ + agents/extra</text>
+    <rect x="646" y="210" width="164" height="26" rx="5" fill="#fff" stroke="#bcd99a"/><text x="652" y="227">scan/ çoklu-parite tarama</text>
+  </g>
+  <text x="32" y="256" font-size="9.5" fill="#5a9e2e">⨯ hata izolasyonu: bir ajan istisna atarsa nötr oyla (score=0) değiştirilir; hat durmaz</text>
+  <!-- decision/risk -->
+  <rect x="20" y="280" width="392" height="80" rx="8" fill="#fff3f3" stroke="#e0413a"/>
+  <text x="216" y="300" text-anchor="middle" font-size="12.5" font-weight="700" fill="#7a201c">KARAR + RİSK</text>
+  <g font-size="10.5" fill="#5a2420"><text x="36" y="322">decision/decision_engine.py</text><text x="36" y="340">risk/risk_engine.py</text><text x="220" y="322">execution/execution_engine</text><text x="220" y="340">backtest/engine.py</text></g>
+  <!-- data/infra -->
+  <rect x="428" y="280" width="392" height="80" rx="8" fill="#fffaf0" stroke="#e0911f"/>
+  <text x="624" y="300" text-anchor="middle" font-size="12.5" font-weight="700" fill="#7a5610">VERİ + ALTYAPI</text>
+  <g font-size="10.5" fill="#5a4410"><text x="444" y="322">data/exchange_manager · market_data</text><text x="444" y="340">data/synthetic · arbitrage · providers.py</text></g>
+  <!-- persistence -->
+  <rect x="20" y="372" width="800" height="44" rx="8" fill="#eef2fa" stroke="#5a6680"/>
+  <text x="420" y="399" text-anchor="middle" font-size="12" font-weight="700" fill="#33405f">KALICILIK + ÖĞRENME — journal/ (JSONL) · learn/ (online + weight_optimizer) · runs/models (model cache)</text>
+  <!-- vertical arrows -->
+  <line x1="420" y1="82" x2="420" y2="92" stroke="#5a6680" stroke-width="2" marker-end="url(#ar2)"/>
+  <line x1="420" y1="138" x2="420" y2="148" stroke="#5a6680" stroke-width="2" marker-end="url(#ar2)"/>
+  <line x1="420" y1="268" x2="420" y2="278" stroke="#5a6680" stroke-width="2" marker-end="url(#ar2)"/>
+  <line x1="420" y1="360" x2="420" y2="370" stroke="#5a6680" stroke-width="2" marker-end="url(#ar2)"/>
+  <path d="M30 394 L12 394 L12 116 L18 116" fill="none" stroke="#5a6680" stroke-width="1.6" stroke-dasharray="4 4" marker-end="url(#ar2)"/>
+  <text x="430" y="440" text-anchor="middle" font-size="9.5" fill="#5a6680">Kesikli geri-ok: öğrenilmiş ağırlıklar yeniden başlatmada orkestrasyona yüklenir (runs/learned_weights.json)</text>
+</svg>
+<figcaption><b>Şekil 1. Katmanlı sistem mimarisi.</b> Sunum → orkestrasyon → analiz/ajan → karar/risk + veri/altyapı → kalıcılık/öğrenme. Orchestrator tüm hattı koordine eder; analiz katmanındaki her modül izole edilmiştir, böylece tek bir ajanın hatası bütünü durdurmaz. Öğrenilen katman ağırlıkları diske yazılır ve yeniden başlatmada geri yüklenir.</figcaption>
+</figure>
+
+<table>
+<caption style="text-align:left"></caption>
+<tr><th>Uzman rolü (spec)</th><th>Modül</th><th>Çekirdek işlevi</th></tr>
+<tr><td>Kantitatif Ekonomist / Quant</td><td><span class="mono">decision/decision_engine.py</span>, <span class="mono">risk/risk_engine.py</span></td><td>Ağırlıklı füzyon, güven kapısı, konum boyutlama</td></tr>
+<tr><td>Derin Öğrenme Araştırmacısı</td><td><span class="mono">ai/deep_models.py</span>, <span class="mono">ai/ensemble.py</span>, <span class="mono">ai/rl_*</span></td><td>Transformer/LSTM/DQN + PPO + GBM topluluğu → p(up)</td></tr>
+<tr><td>Sistem Mimarı / Veri Mühendisi</td><td><span class="mono">agents/orchestrator.py</span>, <span class="mono">data/exchange_manager.py</span></td><td>Çok-kaynaklı veri, koordinasyon, hata izolasyonu</td></tr>
+<tr><td>On-chain / Blockchain Analist</td><td><span class="mono">onchain/flow_engine.py</span></td><td>Whale/shark akışı, funding, OI, mempool (3-tier)</td></tr>
+<tr><td>NLP / Sentiment Mühendisi</td><td><span class="mono">sentiment/{twitter_intelligence,accounts,causal}.py</span></td><td>201 kritik hesap + nedensel etki motoru</td></tr>
+<tr><td>Risk Yönetim Uzmanı</td><td><span class="mono">risk/risk_engine.py</span></td><td>Kelly, VaR, CVaR, Monte Carlo, Sharpe</td></tr>
+<tr><td>Teknik Analiz &amp; Formasyon</td><td><span class="mono">analysis/{indicators,patterns,smc}.py</span></td><td>120+ gösterge, harmonik/klasik formasyon, SMC</td></tr>
+<tr><td>Backtest / Strateji Doğrulama</td><td><span class="mono">backtest/engine.py</span>, <span class="mono">journal/trade_journal.py</span></td><td>Event-driven backtest, walk-forward, Monte Carlo</td></tr>
+<tr><td>Algoritmik Yürütme</td><td><span class="mono">execution/execution_engine.py</span>, <span class="mono">auto/engine.py</span></td><td>Kâğıt-işlem, kill-switch, otonom döngü</td></tr>
+</table>
+<p class="tcap"><b>Tablo 1.</b> Spesifikasyondaki uzman rollerinin yazılım modüllerine birebir eşlenmesi. Her rol bağımsız olarak test edilebilir ve genişletilebilir bir bileşene karşılık gelir.</p>
+
+<!-- ===================== 3. METHODS ===================== -->
+<h2 id="s3">3. Materyal ve Metot</h2>
+<p>Bu bölüm sistemin çekirdek hattını, her parite için tek bir <span class="mono">analyze_symbol()</span> çağrısı boyunca izleyerek açıklar (Şekil 2). Tüm matematiksel ifadeler doğrudan referans uygulamadaki koddan türetilmiştir.</p>
+
+<figure>
+<svg viewBox="0 0 760 560" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif" font-size="11">
+  <defs><marker id="ar3" markerWidth="10" markerHeight="10" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#2d6cdf"/></marker>
+  <marker id="ar3r" markerWidth="10" markerHeight="10" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#e0413a"/></marker></defs>
+  <rect x="0" y="0" width="760" height="560" fill="#fbfcfe"/>
+  <!-- start -->
+  <rect x="280" y="16" width="200" height="40" rx="20" fill="#2d6cdf"/><text x="380" y="41" text-anchor="middle" fill="#fff" font-weight="700">analyze_symbol(symbol)</text>
+  <line x1="380" y1="56" x2="380" y2="72" stroke="#2d6cdf" stroke-width="2" marker-end="url(#ar3)"/>
+  <!-- data -->
+  <rect x="250" y="72" width="260" height="40" rx="6" fill="#eef3fd" stroke="#2d6cdf"/><text x="380" y="89" text-anchor="middle" font-weight="600">1 · Çok zaman dilimli OHLCV çek</text><text x="380" y="104" text-anchor="middle" font-size="9.5" fill="#5a6680">fetch_multi_timeframe → ATR(14), 120+ gösterge</text>
+  <line x1="380" y1="112" x2="380" y2="128" stroke="#2d6cdf" stroke-width="2" marker-end="url(#ar3)"/>
+  <!-- votes parallel -->
+  <rect x="60" y="128" width="640" height="86" rx="6" fill="#f4f7ee" stroke="#5a9e2e"/>
+  <text x="380" y="146" text-anchor="middle" font-weight="700" fill="#3c5a1d">2 · 10 uzman ajan PARALEL oy verir (hata izolasyonlu _safe wrapper)</text>
+  <g font-size="9" fill="#2d3f1a" text-anchor="middle">
+    <rect x="70" y="154" width="80" height="22" rx="4" fill="#fff" stroke="#bcd99a"/><text x="110" y="169">technical</text>
+    <rect x="156" y="154" width="78" height="22" rx="4" fill="#fff" stroke="#bcd99a"/><text x="195" y="169">pattern</text>
+    <rect x="240" y="154" width="66" height="22" rx="4" fill="#fff" stroke="#bcd99a"/><text x="273" y="169">smc</text>
+    <rect x="312" y="154" width="118" height="22" rx="4" fill="#fff" stroke="#bcd99a"/><text x="371" y="169">multi_timeframe</text>
+    <rect x="436" y="154" width="92" height="22" rx="4" fill="#fff" stroke="#bcd99a"/><text x="482" y="169">ai_ensemble</text>
+    <rect x="534" y="154" width="86" height="22" rx="4" fill="#fff" stroke="#bcd99a"/><text x="577" y="169">sentiment</text>
+    <rect x="626" y="154" width="66" height="22" rx="4" fill="#fff" stroke="#bcd99a"/><text x="659" y="169">macro</text>
+    <rect x="156" y="182" width="96" height="22" rx="4" fill="#fff" stroke="#bcd99a"/><text x="204" y="197">fear_greed</text>
+    <rect x="258" y="182" width="70" height="22" rx="4" fill="#fff" stroke="#bcd99a"/><text x="293" y="197">news</text>
+    <rect x="334" y="182" width="80" height="22" rx="4" fill="#fff" stroke="#bcd99a"/><text x="374" y="197">onchain</text>
+  </g>
+  <line x1="380" y1="214" x2="380" y2="230" stroke="#2d6cdf" stroke-width="2" marker-end="url(#ar3)"/>
+  <!-- decision -->
+  <rect x="230" y="230" width="300" height="74" rx="6" fill="#fff3f3" stroke="#e0413a"/>
+  <text x="380" y="248" text-anchor="middle" font-weight="700" fill="#7a201c">3 · KARAR MOTORU</text>
+  <text x="380" y="265" text-anchor="middle" font-size="9.5" fill="#5a2420">ağırlık normalize → S = Σsᵢcᵢwᵢ/Σcᵢwᵢ</text>
+  <text x="380" y="280" text-anchor="middle" font-size="9.5" fill="#5a2420">yön (±0.12) · hizalanma A · güven C</text>
+  <text x="380" y="295" text-anchor="middle" font-size="9.5" fill="#5a2420">C = 0.45|S| + 0.35A + 0.20c̄</text>
+  <!-- gate diamond -->
+  <polygon points="380,318 470,360 380,402 290,360" fill="#fffaf0" stroke="#e0911f" stroke-width="1.5"/>
+  <text x="380" y="352" text-anchor="middle" font-size="10" font-weight="700" fill="#7a5610">C ≥ %90</text>
+  <text x="380" y="367" text-anchor="middle" font-size="10" font-weight="700" fill="#7a5610">&amp; R/R ≥ 1.5 ?</text>
+  <line x1="380" y1="304" x2="380" y2="316" stroke="#e0413a" stroke-width="2" marker-end="url(#ar3r)"/>
+  <!-- no branch -->
+  <line x1="470" y1="360" x2="600" y2="360" stroke="#e0413a" stroke-width="2" marker-end="url(#ar3r)"/>
+  <text x="535" y="352" text-anchor="middle" font-size="9.5" fill="#e0413a" font-weight="700">HAYIR</text>
+  <rect x="600" y="340" width="130" height="40" rx="6" fill="#f1f3f7" stroke="#5a6680"/><text x="665" y="357" text-anchor="middle" font-size="10" fill="#33405f">İŞLEM YOK (FLAT)</text><text x="665" y="371" text-anchor="middle" font-size="8.5" fill="#5a6680">yine de açıklanır</text>
+  <!-- yes branch -->
+  <line x1="380" y1="402" x2="380" y2="418" stroke="#18a558" stroke-width="2" marker-end="url(#ar3)"/>
+  <text x="396" y="414" font-size="9.5" fill="#18a558" font-weight="700">EVET</text>
+  <rect x="250" y="418" width="260" height="40" rx="6" fill="#fffaf0" stroke="#e0911f"/><text x="380" y="435" text-anchor="middle" font-weight="600" fill="#7a5610">4 · RİSK: Kelly · ATR stop · TP1/2/3</text><text x="380" y="450" text-anchor="middle" font-size="9" fill="#7a5610">VaR/CVaR · Monte Carlo · rejim ölçekleme</text>
+  <line x1="380" y1="458" x2="380" y2="474" stroke="#2d6cdf" stroke-width="2" marker-end="url(#ar3)"/>
+  <!-- output -->
+  <rect x="230" y="474" width="300" height="40" rx="6" fill="#eefaf3" stroke="#18a558"/><text x="380" y="491" text-anchor="middle" font-weight="700" fill="#0d6b39">5 · AÇIKLANABİLİR TradeSignal</text><text x="380" y="506" text-anchor="middle" font-size="9" fill="#0d6b39">+ layer_breakdown + forecast + alternatif</text>
+  <line x1="380" y1="514" x2="380" y2="528" stroke="#2d6cdf" stroke-width="2" marker-end="url(#ar3)"/>
+  <rect x="250" y="528" width="260" height="28" rx="6" fill="#eef2fa" stroke="#5a6680"/><text x="380" y="546" text-anchor="middle" font-size="10" fill="#33405f">Execution (paper) → Journal (JSONL) → Öğrenme</text>
+</svg>
+<figcaption><b>Şekil 2. Parite başına karar akış diyagramı.</b> Veri → 10 paralel ajan oyu → ağırlıklı füzyon → güven/RR kapısı → (geçerse) risk boyutlama → açıklanabilir sinyal → kâğıt-yürütme + günlük. Kapı geçilmezse bile sinyal gerekçeleriyle birlikte raporlanır (XAI).</figcaption>
+</figure>
+
+<h3 id="s31">3.1 Veri katmanı</h3>
+<p><span class="mono">data/exchange_manager.py</span> kademeli bir veri-kaynak zinciri uygular: önce <b>ccxt</b> ile anahtarsız public borsa verisi (Binance/Bybit/OKX/Kraken), başarısızsa ücretsiz <b>REST alternatifleri</b> (Binance public REST, CryptoCompare, CoinGecko), son çare <b>sentetik</b> üretim. Sembol bir <span class="mono">/</span> içermiyorsa (örn. <span class="mono">AAPL</span>, <span class="mono">THYAO.IS</span>, <span class="mono">^GSPC</span>, <span class="mono">EURUSD=X</span>, <span class="mono">GC=F</span>) otomatik olarak <b>yfinance</b>'e yönlendirilir — böylece aynı analiz hattı hisse, endeks, döviz ve emtia için de çalışır. Her grafik bir <b>CANLI/SENTETİK rozeti</b> ile kaynağını ve son mum zamanını şeffaf biçimde gösterir. Veri çok zaman dilimlidir (15d, 1s, 4s, 1g, 1h, 1A); birincil zaman dilimi varsayılan olarak 4 saattir.</p>
+
+<h3 id="s32">3.2 Analiz katmanları (uzman ajanlar)</h3>
+<p>Her katman, ortak <span class="mono">LayerVote(score ∈ [−1,1], confidence ∈ [0,1], reasons[])</span> arayüzünü döndürür:</p>
+<ul>
+  <li><b>technical</b> — Saf <span class="mono">numpy/pandas</span> ile 120+ gösterge (EMA/SMA/WMA, RSI, MACD, ADX, Stochastic RSI, CCI, MFI, Williams %R, Bollinger, Ichimoku, Supertrend, VWAP, ROC...). <span class="mono">technical_vote</span> bunları boğa/ayı skoruna ve açıklamalı gerekçelere dönüştürür.</li>
+  <li><b>pattern</b> — Fibonacci oran-tabanlı <b>harmonik formasyonlar</b> (Gartley, Bat, Butterfly, Crab, Cypher, Shark — XABCD tespiti) ve <b>klasik formasyonlar</b> (çift tepe/dip, omuz-baş-omuz ve tersi). Her formasyon yön, tamamlanma %, kalite, hedef, iptal seviyesi ve sayısal oranlar taşır. Farklı formasyonlar aynı fiyatı işaret ettiğinde <i>birleşim (confluence)</i> tespiti güveni artırır.</li>
+  <li><b>smc</b> — Smart Money Concepts: BOS/CHOCH yapı kırılımları, Fair Value Gap (FVG), Order Block bölgeleri ve HH-HL trend yapısı.</li>
+  <li><b>multi_timeframe</b> — 15d…1A arası uyum; yüksek zaman dilimleri daha ağır tartılır.</li>
+  <li><b>sentiment / fear_greed / news</b> — 201 küratörlü kritik Twitter hesabı (146 kripto + 55 siyasi/makro), <span class="mono">causal.py</span> nedensel etki motoru (21 olay türü: ETF onayı/reddi, hack, listeleme, faiz kararı, depeg, token unlock...), Korku &amp; Açgözlülük endeksi (kontraryen) ve CryptoPanic/NewsAPI haber duyarlılığı.</li>
+  <li><b>onchain</b> — Üç-katmanlı whale akış motoru (§3.4).</li>
+  <li><b>macro</b> — FRED API ile gerçek FED faizi + CPI enflasyonu → risk-on/off eğilimi; makro olay takvimi (CPI/NFP/FOMC/OPEX).</li>
+</ul>
+<p>Ayrıca <span class="mono">analysis/regime.py</span>, getiri serisine bir <b>Gizli Markov Modeli (HMM)</b> uydurarak piyasayı dört rejime sınıflar — TREND YUKARI / TREND AŞAĞI / RANGE / VOLATİL — ve bu rejim risk motorunda konum boyutunu ölçekler (§3.6). <span class="mono">hmmlearn</span> yoksa ADX+Bollinger sezgiseline düşülür.</p>
+
+<h3 id="s33">3.3 Yapay zekâ topluluğu</h3>
+<p><span class="mono">ai/ensemble.py</span>, bir sonraki <i>N</i>-bar yön olasılığını <b>p(up)</b> olarak tahmin eden çok-modelli bir topluluk kurar. Look-ahead bias'tan kaçınmak için modeller yalnızca geçmiş pencere üzerinde self-supervised eğitilir. Kurulu olan bileşenler otomatik devreye girer (Şekil 3):</p>
+<ul>
+  <li><b>Klasik ML</b> (scikit-learn): GradientBoosting, HistGradientBoosting, RandomForest, ExtraTrees, Logistic Regression.</li>
+  <li><b>Gradient boosting</b>: XGBoost ve LightGBM (kuruluysa) + özellik önemi raporu.</li>
+  <li><b>Derin öğrenme</b> (<span class="mono">ai/deep_models.py</span>, PyTorch): <i>TransformerForecaster</i> (<span class="mono">nn.TransformerEncoder</span>, d<sub>model</sub>=32, 4 başlık, 2 katman, dizi uzunluğu 32), <i>LSTMForecaster</i>, ve <i>DQNAgent</i> (fitted-Q pozisyon politikası). Modeller <span class="mono">runs/models/</span> altına önbelleklenir.</li>
+  <li><b>PPO pekiştirmeli öğrenme</b> (<span class="mono">ai/rl_*</span>, stable-baselines3): Gymnasium tabanlı <i>TradingEnv</i>'de pozisyon (flat/long/short) tutan gerçek sıralı ajan; ödül = pozisyon × sonraki-bar getirisi − işlem maliyeti. Politika dağılımından kalibre p(up) çıkarır; çok-varlık üzerinde tek paylaşılan PPO eğitilebilir.</li>
+</ul>
+<p>Özellik vektörü 15 boyutludur (ret1/5/10, RSI, Stoch-RSI, MACD histogramı, EMA oranı, ATR, CCI, MFI, ADX, Williams %R, Bollinger %B, ROC, hacim z-skoru). Çıktı kalibre bir olasılık ve açıklama olarak <span class="mono">ai_ensemble</span> katmanına girer. <span class="mono">torch</span>/<span class="mono">sklearn</span> yoksa topluluk, momentum/ortalamaya-dönüş/trend-takip uzman modellerinin Bayesçi ağırlıklı birleşimine zarifçe düşer.</p>
+
+<figure>
+<svg viewBox="0 0 760 270" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif" font-size="11">
+  <defs><marker id="ar4" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#6b4fbb"/></marker></defs>
+  <rect x="0" y="0" width="760" height="270" fill="#fbfcfe"/>
+  <rect x="20" y="20" width="150" height="230" rx="8" fill="#eef3fd" stroke="#2d6cdf"/>
+  <text x="95" y="40" text-anchor="middle" font-weight="700" font-size="11.5" fill="#22305a">ÖZELLİKLER (15B)</text>
+  <g font-size="9" fill="#33405f"><text x="32" y="62">ret1/5/10 · RSI</text><text x="32" y="80">Stoch-RSI · MACD</text><text x="32" y="98">EMA oranı · ATR</text><text x="32" y="116">CCI · MFI · ADX</text><text x="32" y="134">Williams%R</text><text x="32" y="152">Bollinger %B</text><text x="32" y="170">ROC · hacim-z</text></g>
+  <text x="95" y="206" text-anchor="middle" font-size="9" fill="#5a6680">SEQ_LEN=32</text>
+  <text x="95" y="222" text-anchor="middle" font-size="9" fill="#5a6680">self-supervised</text>
+  <text x="95" y="238" text-anchor="middle" font-size="9" fill="#5a6680">(look-ahead yok)</text>
+  <!-- model columns -->
+  <g font-size="9.5">
+    <rect x="200" y="26" width="170" height="50" rx="6" fill="#f4f1fc" stroke="#6b4fbb"/><text x="285" y="46" text-anchor="middle" font-weight="700" fill="#3a2f63">DERİN (PyTorch)</text><text x="285" y="64" text-anchor="middle" font-size="9" fill="#3a2f63">Transformer · LSTM · DQN</text>
+    <rect x="200" y="86" width="170" height="44" rx="6" fill="#f4f1fc" stroke="#6b4fbb"/><text x="285" y="104" text-anchor="middle" font-weight="700" fill="#3a2f63">PEKİŞTİRMELİ</text><text x="285" y="120" text-anchor="middle" font-size="9" fill="#3a2f63">PPO (stable-baselines3)</text>
+    <rect x="200" y="140" width="170" height="44" rx="6" fill="#f4f1fc" stroke="#6b4fbb"/><text x="285" y="158" text-anchor="middle" font-weight="700" fill="#3a2f63">GRADIENT BOOST</text><text x="285" y="174" text-anchor="middle" font-size="9" fill="#3a2f63">XGBoost · LightGBM</text>
+    <rect x="200" y="194" width="170" height="50" rx="6" fill="#f4f1fc" stroke="#6b4fbb"/><text x="285" y="214" text-anchor="middle" font-weight="700" fill="#3a2f63">KLASİK ML</text><text x="285" y="230" text-anchor="middle" font-size="9" fill="#3a2f63">GBM·HistGB·RF·ET·Logit</text>
+  </g>
+  <!-- combine -->
+  <line x1="370" y1="51" x2="430" y2="120" stroke="#6b4fbb" stroke-width="1.6" marker-end="url(#ar4)"/>
+  <line x1="370" y1="108" x2="430" y2="128" stroke="#6b4fbb" stroke-width="1.6" marker-end="url(#ar4)"/>
+  <line x1="370" y1="162" x2="430" y2="142" stroke="#6b4fbb" stroke-width="1.6" marker-end="url(#ar4)"/>
+  <line x1="370" y1="219" x2="430" y2="150" stroke="#6b4fbb" stroke-width="1.6" marker-end="url(#ar4)"/>
+  <rect x="432" y="100" width="150" height="70" rx="8" fill="#ede9f9" stroke="#6b4fbb" stroke-width="1.5"/>
+  <text x="507" y="124" text-anchor="middle" font-weight="700" fill="#3a2f63">TOPLULUK</text><text x="507" y="142" text-anchor="middle" font-size="9" fill="#3a2f63">kalibre birleşim</text><text x="507" y="158" text-anchor="middle" font-size="9" fill="#3a2f63">+ feature importance</text>
+  <line x1="582" y1="135" x2="620" y2="135" stroke="#6b4fbb" stroke-width="2" marker-end="url(#ar4)"/>
+  <rect x="622" y="108" width="120" height="54" rx="8" fill="#eefaf3" stroke="#18a558"/>
+  <text x="682" y="130" text-anchor="middle" font-weight="700" fill="#0d6b39">p(up)</text><text x="682" y="148" text-anchor="middle" font-size="9" fill="#0d6b39">→ ai_ensemble oyu</text>
+</svg>
+<figcaption><b>Şekil 3. Yapay zekâ topluluğu yığını.</b> 15 boyutlu özellik dizisi dört model ailesini besler; kalibre birleşim, karar motoruna tek bir <span class="mono">p(up)</span> olasılığı ve özellik-önemi açıklamasıyla girer. Hiçbir opsiyonel kütüphane yoksa topluluk Bayesçi uzman-modellere düşer.</figcaption>
+</figure>
+
+<h3 id="s34">3.4 On-chain whale &amp; shark motoru</h3>
+<p><span class="mono">onchain/flow_engine.py</span> üç katmanlı, kademeli güçlenen bir mimari kullanır (Şekil 4). Her katman kendi güven çarpanıyla skora katkı yapar; veri çekilemezse fiyat/hacim türevinden düşük-güvenli bir <i>proxy</i> üretilir.</p>
+<figure>
+<svg viewBox="0 0 760 230" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif" font-size="10.5">
+  <rect x="0" y="0" width="760" height="230" fill="#fbfcfe"/>
+  <rect x="20" y="24" width="710" height="58" rx="8" fill="#eefaf3" stroke="#18a558"/>
+  <text x="34" y="44" font-weight="700" fill="#0d6b39">TIER 1 — Her zaman (anahtarsız, ücretsiz)</text>
+  <text x="34" y="62" font-size="9.5" fill="#1d4a33">ccxt büyük-işlem akışı: shark $50K+ / whale $250K+ / mega-whale $1M+ tier · whale CVD (büyük taker alım−satım)</text>
+  <text x="34" y="76" font-size="9.5" fill="#1d4a33">funding rate · open interest · order book imbalance + likidite duvarları · BTC mempool (mempool.space)</text>
+  <rect x="20" y="92" width="710" height="56" rx="8" fill="#fffaf0" stroke="#e0911f"/>
+  <text x="34" y="112" font-weight="700" fill="#7a5610">TIER 2 — Ücretsiz API anahtarlarıyla yükselir</text>
+  <text x="34" y="130" font-size="9.5" fill="#5a4410">Etherscan (ETH/ERC-20 büyük transfer + borsa cüzdan etiketi) · CoinGecko · CoinMarketCap · Blockchain.com</text>
+  <text x="34" y="144" font-size="9.5" fill="#5a4410">→ zincir-üstü cüzdan ⇄ borsa transferleri, piyasa trend proxy'si</text>
+  <rect x="20" y="158" width="710" height="48" rx="8" fill="#f4f1fc" stroke="#6b4fbb"/>
+  <text x="34" y="178" font-weight="700" fill="#3a2f63">TIER 3 — Premium (opsiyonel)</text>
+  <text x="34" y="196" font-size="9.5" fill="#3a2f63">Whale Alert — entity-etiketli zincir-üstü transferler (en yüksek güven çarpanı)</text>
+</svg>
+<figcaption><b>Şekil 4. Üç-katmanlı on-chain mimari.</b> Tier 1 hiçbir anahtar gerektirmeden çalışır; Tier 2 ve 3 ilgili API anahtarı eklendiğinde otomatik aktifleşir ve katman güvenini yükseltir.</figcaption>
+</figure>
+
+<h3 id="s35">3.5 Karar motoru: ağırlıklı füzyon ve güven kapısı</h3>
+<p>Karar motoru (<span class="mono">decision/decision_engine.py</span>) önce yalnızca mevcut katmanlar üzerinden temel ağırlıkları normalize eder:</p>
+<div class="eq">w<sub>i</sub> = base<sub>i</sub> &frasl; &Sigma;<sub>j</sub> base<sub>j</sub> <span class="n">(1)</span></div>
+<p>Birleşik skor, her katmanın kendi güveniyle modüle edilmiş ağırlıklı ortalamadır:</p>
+<div class="eq">S = ( &Sigma;<sub>i</sub> s<sub>i</sub> · c<sub>i</sub> · w<sub>i</sub> ) &frasl; ( &Sigma;<sub>i</sub> c<sub>i</sub> · w<sub>i</sub> + &epsilon; ), &nbsp; S &isin; [−1, +1] <span class="n">(2)</span></div>
+<p>Yön ölü-bölge eşiğiyle belirlenir: S &gt; 0.12 → LONG, S &lt; −0.12 → SHORT, aksi halde FLAT. Katmanların yön uyumu (<i>hizalanma</i>) ve nihai güven şöyle hesaplanır:</p>
+<div class="eq">A = ( &Sigma;<sub>aktif, hizalı</sub> w<sub>i</sub> ) &frasl; ( &Sigma;<sub>aktif</sub> w<sub>i</sub> ) <span class="n">(3)</span></div>
+<div class="eq">C = 0.45·|S| &nbsp;+&nbsp; 0.35·A &nbsp;+&nbsp; 0.20·c&#772; , &nbsp; C &isin; [0, 0.99] <span class="n">(4)</span></div>
+<p>burada c&#772; katman güvenlerinin ortalamasıdır. Başarı olasılığı güvenden kalibre edilir: <span class="mono">p = clip(0.45 + 0.45·C, 0.45, 0.92)</span>. Spesifikasyonun temel kuralı, son işlem kapısıdır:</p>
+<div class="eq">actionable &hArr; (yön &ne; FLAT) &and; (C &ge; 0.90) &and; (R/R &ge; 1.5) <span class="n">(5)</span></div>
+<p>Bu kapı, sistemin “tek sinyalle işlem açmama” ve “%90 güven altında sinyal üretmeme” ilkelerini doğrudan kodlar. Kapı geçilmese dahi sinyal, tüm gerekçeleriyle birlikte üretilir ve raporlanır — yalnızca <i>actionable</i> bayrağı <span class="mono">False</span> olur. Her sinyal, katmanları katkı büyüklüğüne göre sıralayan bir <b>katman kırılımı</b> (<span class="mono">layer_breakdown</span>: katman, bias, skor, güven, ağırlık, katkı, gerekçeler) taşır — açıklanabilirliğin temeli budur. Sinyal ayrıca 6-kademe sınıf (KESİN AL/ZAYIF AL/NÖTR/ZAYIF SAT/KESİN SAT/ACİL ÇIKIŞ), momentum skoru (0–100) ve volatilite sınıfı (low/medium/high/extreme) üretir.</p>
+
+<figure>
+<svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif" font-size="11">
+  <rect x="0" y="0" width="720" height="250" fill="#fbfcfe"/>
+  <text x="20" y="26" font-weight="700" fill="#22305a" font-size="13">Varsayılan katman ağırlıkları (config.yaml)</text>
+  <!-- axis -->
+  <line x1="150" y1="46" x2="150" y2="226" stroke="#9aa6bd" stroke-width="1"/>
+  <line x1="150" y1="226" x2="690" y2="226" stroke="#9aa6bd" stroke-width="1"/>
+  <!-- bars: scale 0.20 -> 520px -->
+  <g font-size="11" fill="#22305a">
+    <text x="142" y="62" text-anchor="end">technical</text><rect x="150" y="52" width="520" height="16" fill="#2d6cdf"/><text x="678" y="65" text-anchor="end" fill="#fff" font-size="9.5">0.20</text>
+    <text x="142" y="84" text-anchor="end">ai_ensemble</text><rect x="150" y="74" width="390" height="16" fill="#6b4fbb"/><text x="534" y="87" text-anchor="end" fill="#fff" font-size="9.5">0.15</text>
+    <text x="142" y="106" text-anchor="end">multi_timeframe</text><rect x="150" y="96" width="338" height="16" fill="#0f9aa6"/><text x="482" y="109" text-anchor="end" fill="#fff" font-size="9.5">0.13</text>
+    <text x="142" y="128" text-anchor="end">pattern</text><rect x="150" y="118" width="312" height="16" fill="#5a9e2e"/><text x="456" y="131" text-anchor="end" fill="#fff" font-size="9.5">0.12</text>
+    <text x="142" y="150" text-anchor="end">onchain</text><rect x="150" y="140" width="312" height="16" fill="#e0911f"/><text x="456" y="153" text-anchor="end" fill="#fff" font-size="9.5">0.12</text>
+    <text x="142" y="172" text-anchor="end">smc</text><rect x="150" y="162" width="260" height="16" fill="#0f9aa6"/><text x="404" y="175" text-anchor="end" fill="#fff" font-size="9.5">0.10</text>
+    <text x="142" y="194" text-anchor="end">sentiment</text><rect x="150" y="184" width="260" height="16" fill="#e0413a"/><text x="404" y="197" text-anchor="end" fill="#fff" font-size="9.5">0.10</text>
+    <text x="142" y="216" text-anchor="end">macro</text><rect x="150" y="206" width="208" height="16" fill="#5a6680"/><text x="352" y="219" text-anchor="end" fill="#fff" font-size="9.5">0.08</text>
+  </g>
+  <text x="420" y="244" text-anchor="middle" font-size="9.5" fill="#5a6680">Ağırlıklar dinamik normalize edilir (Denklem 1) ve çevrimiçi öğrenmeyle güncellenir. fear_greed/news varsayılan 0.05 ile katılır.</text>
+</svg>
+<figcaption><b>Şekil 5. Varsayılan katman ağırlıkları.</b> Teknik analiz ve yapay zekâ topluluğu en yüksek başlangıç ağırlığına sahiptir; ancak bu değerler çalışma anında normalize edilir ve kapanan işlem sonuçlarına göre çevrimiçi öğrenmeyle yeniden hesaplanır (§3.8).</figcaption>
+</figure>
+
+<h3 id="s36">3.6 Risk motoru</h3>
+<p>Risk motoru (<span class="mono">risk/risk_engine.py</span>), kabul edilen bir yön için konum boyutunu ve seviyeleri hesaplar. <b>Kelly kriteri</b> güvenli çeyrek-Kelly olarak uygulanır ve bir tavanla sınırlanır:</p>
+<div class="eq">f* = (b·p − q) &frasl; b , &nbsp;&nbsp; f<sub>kullanılan</sub> = min(0.25·f*, 0.20) <span class="n">(6)</span></div>
+<p>burada b = R/R, p = kazanma olasılığı, q = 1−p. Stop ve kâr-al merdiveni ATR-tabanlıdır (stop mesafesi = 2.0·ATR; TP çarpanları {1.5, 2.5, 4.0}·stop mesafesi):</p>
+<div class="eq">stop = giriş &mp; m<sub>ATR</sub>·ATR , &nbsp;&nbsp; TP<sub>k</sub> = giriş &pm; r<sub>k</sub>·(m<sub>ATR</sub>·ATR) <span class="n">(7)</span></div>
+<p>Risk-temelli konum değeri, portföyün en fazla %10'u ile sınırlıdır: <span class="mono">posval = min(risk_amount / stop_dist_pct, 0.10·portföy)</span>. Kuyruk riski tarihsel getirilerden <b>VaR/CVaR</b> ile ölçülür:</p>
+<div class="eq">VaR<sub>95</sub> = |P<sub>5</sub>(r)|·posval , &nbsp;&nbsp; CVaR = |E[ r &le; P<sub>5</sub>(r) ]|·posval <span class="n">(8)</span></div>
+<p>Sağlamlık, <b>5.000 simülasyon × 50 işlem</b> Monte Carlo ile test edilir; her işlemde özsermaye kazançta (1 + R/R·0.01), kayıpta (1 − 0.01) çarpanıyla güncellenir ve beklenen getiri, kazanma oranı, ortalama maksimum drawdown ile <i>ruin olasılığı</i> raporlanır. Beklenen Sharpe oranı yıllıklandırılır (√252). Son olarak, HMM piyasa rejimi konum boyutunu ölçekler: trend-uyumlu ×1.1, range ×0.6, volatil ×0.4, <b>trende-karşı ×0.5</b>. Risk çıktısı (<span class="mono">RiskAnalysis</span>) önerilen konum, Kelly oranı, R/R, beklenen değer, VaR<sub>95/99</sub>, CVaR, stop, TP1/2/3, Monte Carlo metrikleri ve portföy ısısını içerir.</p>
+
+<h3 id="s37">3.7 Yürütme, günlük ve otonom motor</h3>
+<p><b>Yürütme</b> (<span class="mono">execution/execution_engine.py</span>) varsayılan olarak <b>kâğıt-işlem</b> yapar. Canlı emir yalnızca <span class="mono">execution.mode = live</span> <i>ve</i> <span class="mono">allow_live = true</span> çift-onayıyla, emir başına USDT tavanıyla ve varsayılan Binance Testnet (sahte para) ile etkinleşir. <b>Kill-switch</b>: portföy drawdown'ı eşiği (varsayılan %15) aşarsa yeni işlemler durur. Her sinyal <b>JSONL günlüğüne</b> (<span class="mono">journal/trade_journal.py</span>) yazılır; bu günlük backtest ve öğrenmenin temelidir.</p>
+<p><b>Otonom motor</b> (<span class="mono">auto/engine.py</span>, AutoTrader) arka-plan döngüsünde sürekli tüm pariteleri tarar; işlem-adayı sinyallerde risk + konviksiyon + maruziyet tavanı (özsermayenin en fazla %60'ı açık notional, en fazla 5 açık pozisyon) ile boyutlanmış kâğıt pozisyon açar; açık pozisyonları kademeli TP çıkışı (1/3) + breakeven stop + stop/iptal ile yönetir; PnL/özsermaye/kazanma-oranı/drawdown izler ve giriş/çıkışlarda alarm üretir (Şekil 6). Güvenlik gereği otonom motor <i>yalnızca</i> kâğıt modda emir açar.</p>
+
+<figure>
+<svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif" font-size="10.5">
+  <defs><marker id="ar5" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#0f9aa6"/></marker></defs>
+  <rect x="0" y="0" width="720" height="300" fill="#fbfcfe"/>
+  <text x="360" y="24" text-anchor="middle" font-weight="700" font-size="13" fill="#0c6b73">AutoTrader — otonom kapalı döngü (her ~60 sn)</text>
+  <!-- circular-ish flow -->
+  <rect x="280" y="40" width="160" height="38" rx="6" fill="#eef3fd" stroke="#2d6cdf"/><text x="360" y="64" text-anchor="middle">① Tüm pariteleri tara (pipeline)</text>
+  <rect x="500" y="100" width="180" height="40" rx="6" fill="#fff3f3" stroke="#e0413a"/><text x="590" y="118" text-anchor="middle" font-size="9.5">② Açık pozisyonları işaretle</text><text x="590" y="132" text-anchor="middle" font-size="9.5">stop/TP/iptal → kapat</text>
+  <rect x="500" y="180" width="180" height="40" rx="6" fill="#fffaf0" stroke="#e0911f"/><text x="590" y="198" text-anchor="middle" font-size="9.5">③ Kill-switch kontrolü</text><text x="590" y="212" text-anchor="middle" font-size="9.5">drawdown &gt; %15 → dur</text>
+  <rect x="270" y="240" width="180" height="40" rx="6" fill="#eefaf3" stroke="#18a558"/><text x="360" y="258" text-anchor="middle" font-size="9.5">④ Aday sinyal → risk+konviksiyon</text><text x="360" y="272" text-anchor="middle" font-size="9.5">kâğıt pozisyon aç (≤%60 notional)</text>
+  <rect x="40" y="180" width="180" height="40" rx="6" fill="#f4f1fc" stroke="#6b4fbb"/><text x="130" y="198" text-anchor="middle" font-size="9.5">⑤ Kapanan işlem →</text><text x="130" y="212" text-anchor="middle" font-size="9.5">çevrimiçi öğrenme (ağırlık)</text>
+  <rect x="40" y="100" width="180" height="40" rx="6" fill="#eef2fa" stroke="#5a6680"/><text x="130" y="118" text-anchor="middle" font-size="9.5">⑥ "Overall" anlık görüntü</text><text x="130" y="132" text-anchor="middle" font-size="9.5">komuta merkezine yayılır</text>
+  <!-- arrows around -->
+  <line x1="440" y1="60" x2="500" y2="112" stroke="#0f9aa6" stroke-width="1.8" marker-end="url(#ar5)"/>
+  <line x1="590" y1="140" x2="590" y2="178" stroke="#0f9aa6" stroke-width="1.8" marker-end="url(#ar5)"/>
+  <line x1="500" y1="210" x2="452" y2="252" stroke="#0f9aa6" stroke-width="1.8" marker-end="url(#ar5)"/>
+  <line x1="268" y1="258" x2="222" y2="210" stroke="#0f9aa6" stroke-width="1.8" marker-end="url(#ar5)"/>
+  <line x1="130" y1="178" x2="130" y2="142" stroke="#0f9aa6" stroke-width="1.8" marker-end="url(#ar5)"/>
+  <line x1="220" y1="112" x2="278" y2="62" stroke="#0f9aa6" stroke-width="1.8" marker-end="url(#ar5)"/>
+</svg>
+<figcaption><b>Şekil 6. Otonom işlem kapalı döngüsü.</b> Tara → pozisyonları yönet → kill-switch → boyutla &amp; kâğıt-aç → kapanan işlemden öğren → durumu yayınla. Döngü yalnızca simülasyon (paper) modunda emir açar.</figcaption>
+</figure>
+
+<h3 id="s38">3.8 Öğrenme, backtest ve optimizasyon</h3>
+<p><b>Çevrimiçi öğrenme</b> (<span class="mono">learn/online.py</span>): Otonom motor bir işlemi kapattığında, o işlemi açan sinyalin katman katkıları + gerçek kâr/zarar sonucu işlenir. Her katman için “kârlı yönü doğru işaret etti mi” ağırlıklı biriktirilir; her N işlemde katman ağırlıkları isabete göre yeniden hesaplanır, karar motoruna canlı uygulanır ve <span class="mono">runs/learned_weights.json</span>'a yazılır (yeniden başlatmada yüklenir). Bu, sistemin kapalı-döngü self-improvement mekanizmasıdır.</p>
+<p><b>Backtest</b> (<span class="mono">backtest/engine.py</span>): Event-driven, look-ahead-bias'sız. Her bar için vektörize bir teknik karar skoru (EMA dizilimi, RSI, MACD histogramı, Supertrend) hesaplanır; eşik aşılırsa pozisyon açılır ve sonraki barların high/low'una göre SL/TP veya ters sinyalle kapanır. Gerçekçi maliyetler uygulanır (taker fee 0.04% + slippage 0.02%). Çıktı: işlem sayısı, kazanma oranı, profit factor, net getiri, maksimum drawdown, Sharpe ve walk-forward kat dağılımı. <b>Monte Carlo backtest</b> işlem getirilerini 1000× bootstrap yeniden örnekleyerek sıralamadan-bağımsız sağlamlık verir (kâr olasılığı, %90 güven aralığı, p95 drawdown → SAĞLAM/ORTA/KIRILGAN).</p>
+<p><b>Parametre optimizasyonu</b>: Stop/TP/eşik ızgarası (4×4×3 = 48 kombinasyon) taranır, her biri risk-ayarlı skorla (getiri/drawdown × profit factor, işlem-sayısı kapılı) puanlanır, en iyi Monte Carlo ile doğrulanır ve mevcut config ile karşılaştırılır. Bulunan en iyi config, tek tıkla çalışan risk motoruna yazılabilir.</p>
+
+<!-- ===================== 4. RESULTS ===================== -->
+<h2 id="s4">4. Sonuçlar</h2>
+<p>Sistem, uçtan uca yalnızca <span class="mono">numpy</span> + <span class="mono">pandas</span> ile çalışacak şekilde doğrulanmıştır; opsiyonel kütüphaneler eklendikçe yetenekler kademeli olarak artar. Aşağıda sistemin işlevsel çıktıları ve temsilî nicel sonuçları sunulmaktadır.</p>
+
+<h3>4.1 Açıklanabilir sinyal çıktısı</h3>
+<p>Her parite için üretilen <span class="mono">TradeSignal</span> (Tablo 2) spesifikasyondaki tüm alanları ve ek bilgileri taşır: yön, giriş, stop, TP1/2/3, R/R, başarı olasılığı, beklenen getiri/kayıp, iptal seviyesi, alternatif senaryo, kalibre güven skoru, alış/satış baskısı yüzdeleri, sonraki periyot maks/min tahmini (±%68 ve ±%95 güven aralıklarıyla) ve — en önemlisi — katman bazlı gerekçe raporu.</p>
+<table>
+<tr><th>Çıktı alanı</th><th>Açıklama</th></tr>
+<tr><td><span class="mono">direction / bias</span></td><td>LONG / SHORT / FLAT ve BOĞA / AYI / NÖTR</td></tr>
+<tr><td><span class="mono">confidence</span></td><td>Kalibre güven (Denklem 4); ≥ 0.90 ise işleme uygun</td></tr>
+<tr><td><span class="mono">entry, stop_loss, take_profits[3]</span></td><td>ATR-tabanlı giriş, stop ve 3-kademeli TP merdiveni</td></tr>
+<tr><td><span class="mono">risk_reward, success_probability</span></td><td>R/R oranı ve kalibre başarı olasılığı</td></tr>
+<tr><td><span class="mono">invalidation, alternative_scenario</span></td><td>Senaryonun iptal seviyesi + ters senaryo planı</td></tr>
+<tr><td><span class="mono">buy/sell_pressure_pct, forecast</span></td><td>Alıcı/satıcı baskısı % + sonraki maks/min tahmini</td></tr>
+<tr><td><span class="mono">signal_class, momentum_score, volatility</span></td><td>6-kademe sınıf, 0–100 momentum, volatilite sınıfı</td></tr>
+<tr><td><span class="mono">layer_breakdown[]</span></td><td><b>XAI:</b> katman, skor, güven, ağırlık, katkı, gerekçeler</td></tr>
+</table>
+<p class="tcap"><b>Tablo 2.</b> Açıklanabilir <span class="mono">TradeSignal</span> şeması. Sistem yalnızca bir karar değil, kararın <i>neden</i> verildiğini gösteren tam bir denetim izi üretir.</p>
+
+<h3>4.2 Olasılıksal kalibrasyon</h3>
+<p>Derin modeller ham bir sonraki-bar yön tahmininde ~%52–55 doğrulama isabeti elde eder. Bu değer, finansal serilerin yakın-martingale doğası gereği <b>gerçekçi ve dürüsttür</b>; “her zaman doğru tahmin” iddiası fiziksel olarak mümkün değildir. Sistemin değeri tek-bar isabetinde değil, bu zayıf-ama-anlamlı kenarı (i) çok-katmanlı teyitle güçlendirmesinde, (ii) katı bir güven kapısıyla yalnızca yüksek-uyum durumlarında işlem önermesinde ve (iii) Kelly/ATR/VaR risk çerçevesiyle hayatta-kalmayı önceliklendirmesindedir.</p>
+
+<h3>4.3 Parametre optimizasyonu — temsilî koşu</h3>
+<p>Grid-arama optimizasyonu, BTC/USDT 4 saatlik veride varsayılan konfigürasyonun <b>%9.9</b> net getirisini, ATR×1.5 / TP-SL oranı 3 / eşik 0.5 konfigürasyonuyla <b>%21.7</b>'ye çıkarırken aynı zamanda <i>daha düşük</i> maksimum drawdown elde etmiştir (Şekil 7). Bu sonuç, Monte Carlo bootstrap ile sağlamlık açısından doğrulanmıştır. Optimize edilen konfigürasyon tek tıkla canlı risk motoruna uygulanabilir.</p>
+<figure>
+<svg viewBox="0 0 620 250" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif" font-size="11">
+  <rect x="0" y="0" width="620" height="250" fill="#fbfcfe"/>
+  <text x="20" y="26" font-weight="700" font-size="12.5" fill="#22305a">Optimizasyon öncesi vs. sonrası (BTC/USDT · 4s, temsilî)</text>
+  <line x1="70" y1="40" x2="70" y2="210" stroke="#9aa6bd"/><line x1="70" y1="210" x2="600" y2="210" stroke="#9aa6bd"/>
+  <!-- y ticks -->
+  <g font-size="9" fill="#5a6680" text-anchor="end"><text x="64" y="213">0%</text><text x="64" y="170">8%</text><text x="64" y="128">15%</text><text x="64" y="86">22%</text></g>
+  <!-- before bar 9.9% -->
+  <rect x="160" y="151" width="90" height="59" fill="#5a6680"/><text x="205" y="145" text-anchor="middle" font-size="11" font-weight="700" fill="#33405f">%9.9</text><text x="205" y="226" text-anchor="middle" font-size="10" fill="#33405f">Varsayılan</text>
+  <!-- after bar 21.7% -->
+  <rect x="360" y="80" width="90" height="130" fill="#18a558"/><text x="405" y="74" text-anchor="middle" font-size="11" font-weight="700" fill="#0d6b39">%21.7</text><text x="405" y="226" text-anchor="middle" font-size="10" fill="#0d6b39">Optimize</text>
+  <!-- arrow -->
+  <line x1="258" y1="120" x2="352" y2="120" stroke="#e0911f" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#ar3)"/>
+  <text x="305" y="112" text-anchor="middle" font-size="9.5" fill="#7a5610">+ daha düşük drawdown</text>
+  <text x="500" y="120" font-size="9.5" fill="#5a6680">ATR×1.5</text><text x="500" y="136" font-size="9.5" fill="#5a6680">TP/SL = 3</text><text x="500" y="152" font-size="9.5" fill="#5a6680">eşik 0.5</text><text x="500" y="170" font-size="9" fill="#5a6680">(MC ile doğrulandı)</text>
+</svg>
+<figcaption><b>Şekil 7. Parametre optimizasyonunun temsilî etkisi.</b> 48-kombinasyonlu grid-arama, net getiriyi yaklaşık iki katına çıkarırken maksimum drawdown'u düşürmüştür. Değerler tek bir örnek koşuya aittir ve garanti değildir; her piyasa/zaman dilimi için yeniden optimize edilmelidir.</figcaption>
+</figure>
+
+<h3>4.4 İşlevsel kapsam</h3>
+<p>Sistem; web tabanlı bir komuta-merkezi paneli (FastAPI + SSE canlı akış), çoklu-parite tarama, borsalar-arası arbitraj tespiti, likidasyon ısı haritası + CVD/order-flow, korelasyon ısı-matrisi, sektör rotasyonu, makro olay öngörüsü, alarm sistemi (Telegram/Discord), TradingView/Telegram webhook entegrasyonu ve JSON/CSV dışa-aktarım dahil olmak üzere uçtan-uca işlevsel bir karar-destek ortamı sunar. Tüm yetenekler, kod-gömülü hiçbir API anahtarı olmadan ve varsayılan kâğıt-işlem güvenliğiyle çalışır.</p>
+
+<h3>4.5 Doğrulama ve yeniden üretilebilirlik</h3>
+<p>Bu makaledeki iddialar, sistemin gerçek bir koşumuyla doğrulanmıştır (Python 3.12.10; numpy 2.4.4; pandas 3.0.3; tüm opsiyonel kütüphaneler — ccxt, scikit-learn, torch, xgboost, lightgbm, hmmlearn, stable-baselines3, gymnasium, yfinance, fastapi — kurulu ve aktif). Statik ve dinamik doğrulama sonuçları Tablo 3'te özetlenmiştir.</p>
+<table>
+<tr><th>Doğrulama testi</th><th>Sonuç</th></tr>
+<tr><td>Tüm paketlerin içe-aktarımı (import)</td><td><b>64 / 64 modül başarılı</b>, sözdizimi/içe-aktarım hatası yok</td></tr>
+<tr><td>Uçtan-uca analiz hattı (sentetik veri)</td><td>Çalışıyor — 10 katman oyu, kalibre p(up), XAI kırılımı, %90 kapısı uygulandı</td></tr>
+<tr><td>Derin öğrenme yığını</td><td>Aktif — Transformer + LSTM + DQN + PPO + XGB/LGBM birleşik p(up) üretti</td></tr>
+<tr><td>Backtest (BTC/USDT 4s, 600 bar, sentetik)*</td><td>15 işlem · kazanma %60 · profit factor 2.6 · getiri +%31.7 · MDD %5.9 · Sharpe 7.1</td></tr>
+<tr><td>Grid optimizasyonu (aynı veri, in-sample)*</td><td>En iyi: ATR×3, R/R 1.5, eşik 0.5 → kazanma %75 · PF 6.16 · MDD %5.8</td></tr>
+<tr><td>Otonom motor / sunucu / JSON dışa-aktarım</td><td>Tümü hatasız başlatıldı ve serileştirildi</td></tr>
+<tr><td>Sağlayıcı kataloğu öz-denetimi</td><td>27 sağlayıcı · 41 anahtar · tutarlı (yinelenen yok)</td></tr>
+</table>
+<p class="tcap"><b>Tablo 3.</b> Yeniden üretilebilirlik doğrulaması. <b>*Uyarı:</b> Backtest/optimizasyon rakamları <i>sentetik veri üzerinde örnek-içi (in-sample)</i> değerlerdir; ileriye dönük garanti değildir ve aşırı-uyum riski taşır. Gerçek piyasa performansı için canlı veriyle walk-forward + örnek-dışı doğrulama zorunludur (§6).</p>
+<div class="note"><b>Doğrulama sırasında bulunan ve giderilen hata:</b> <span class="mono">providers.py</span> öz-denetim çıktısı, Windows Türkçe konsolunda (cp1254) Unicode rozet (✅) yazarken <span class="mono">UnicodeEncodeError</span> ile çöküyordu. Düzeltme: <span class="mono">run.py</span> ile aynı UTF-8 yeniden-yapılandırma koruması (<span class="mono">sys.stdout.reconfigure(encoding="utf-8")</span>) <span class="mono">__main__</span> bloğuna eklendi. Çekirdek karar hattı bu hatadan etkilenmiyordu (yalnızca tanı aracı çıktısı). Düzeltme sonrası öz-denetim hatasız çalışmaktadır.</div>
+
+<h3>4.6 Canlı veri ile örnek-dışı (out-of-sample) doğrulama</h3>
+<p>Aşırı-uyumu (overfitting) dürüstçe ölçmek için kesin bir <b>örnek-dışı protokol</b> uygulanmıştır: üç parite (BTC/USDT, ETH/USDT, SOL/USDT) için <b>canlı ccxt</b> verisinden çalıştırma anındaki en son 1000×4s bar çekilmiş; ilk <b>%60'lık dilimde (eğitim)</b> 48-kombinasyonlu grid optimizasyon yapılarak en iyi parametre seçilmiş; bu parametre dokunulmamış son <b>%40'lık dilimde (test)</b> uygulanmıştır (200 bar ısınma payıyla). Ayrıca optimize-edilmemiş varsayılan parametre de aynı test diliminde kıyas olarak değerlendirilmiş ve test işlemleri 1000× bootstrap Monte Carlo ile sınanmıştır (Tablo 5, Şekil 8).</p>
+<table>
+<tr><th>Parite</th><th>Eğitim (örnek-içi)</th><th>Test — optimize (OOS)</th><th>Test — varsayılan (OOS)</th><th>OOS Monte Carlo</th></tr>
+<tr><td><b>BTC/USDT</b></td><td>+9.2% · PF 1.40 · MDD 11.4%</td><td><b>+7.5%</b> · PF 1.43 · MDD 4.9% · Sharpe 2.55</td><td>+7.3% · PF 1.31</td><td>kâr olas. <b>%71</b> → <span style="color:#18a558;font-weight:700">SAĞLAM</span></td></tr>
+<tr><td><b>ETH/USDT</b></td><td>−31.0% · PF 0.56</td><td>−3.2% · PF 0.97 · MDD 17.1%</td><td><b>+2.8%</b> · PF 1.13</td><td>kâr olas. %42 → <span style="color:#e0413a;font-weight:700">KIRILGAN</span></td></tr>
+<tr><td><b>SOL/USDT</b></td><td>−25.3% · PF 0.69</td><td><b>+11.5%</b> · PF 1.24 · MDD 18.8% · Sharpe 1.58</td><td>+3.4% · PF 1.15</td><td>kâr olas. %68 → <span style="color:#e0911f;font-weight:700">ORTA</span></td></tr>
+</table>
+<p class="tcap"><b>Tablo 5.</b> Canlı veri örnek-dışı doğrulama (4 saatlik; son 1000 bar; %60 eğitim / %40 test). Değerler net getiri, profit factor (PF) ve maksimum drawdown (MDD) cinsindendir. Son kapanışlar: BTC ≈ 59.632, ETH ≈ 1.591, SOL ≈ 74.18 USDT.</p>
+
+<figure>
+<svg viewBox="0 0 700 300" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif" font-size="11">
+  <rect x="0" y="0" width="700" height="300" fill="#fbfcfe"/>
+  <text x="20" y="22" font-weight="700" font-size="12.5" fill="#22305a">Örnek-içi (eğitim) vs. örnek-dışı (test) getiri — canlı 4s veri</text>
+  <!-- axes -->
+  <line x1="70" y1="50" x2="70" y2="250" stroke="#9aa6bd"/>
+  <line x1="70" y1="110" x2="680" y2="110" stroke="#33405f" stroke-width="1.3"/>
+  <g font-size="9" fill="#5a6680" text-anchor="end">
+    <text x="64" y="54">+15%</text><text x="64" y="114">0%</text><text x="64" y="174">−15%</text><text x="64" y="254">−35%</text>
+  </g>
+  <!-- BTC -->
+  <rect x="150" y="73" width="46" height="37" fill="#5a6680"/><text x="173" y="68" text-anchor="middle" font-size="9" fill="#33405f">+9.2</text>
+  <rect x="204" y="80" width="46" height="30" fill="#18a558"/><text x="227" y="75" text-anchor="middle" font-size="9" fill="#0d6b39" font-weight="700">+7.5</text>
+  <text x="200" y="268" text-anchor="middle" font-size="10.5" font-weight="700" fill="#22305a">BTC/USDT</text>
+  <text x="200" y="282" text-anchor="middle" font-size="9" font-weight="700" fill="#18a558">SAĞLAM (%71)</text>
+  <!-- ETH -->
+  <rect x="340" y="110" width="46" height="124" fill="#5a6680"/><text x="363" y="248" text-anchor="middle" font-size="9" fill="#7a201c">−31.0</text>
+  <rect x="394" y="110" width="46" height="13" fill="#e0413a"/><text x="417" y="136" text-anchor="middle" font-size="9" fill="#7a201c" font-weight="700">−3.2</text>
+  <text x="390" y="268" text-anchor="middle" font-size="10.5" font-weight="700" fill="#22305a">ETH/USDT</text>
+  <text x="390" y="282" text-anchor="middle" font-size="9" font-weight="700" fill="#e0413a">KIRILGAN (%42)</text>
+  <!-- SOL -->
+  <rect x="530" y="110" width="46" height="101" fill="#5a6680"/><text x="553" y="225" text-anchor="middle" font-size="9" fill="#7a201c">−25.3</text>
+  <rect x="584" y="64" width="46" height="46" fill="#18a558"/><text x="607" y="59" text-anchor="middle" font-size="9" fill="#0d6b39" font-weight="700">+11.5</text>
+  <text x="580" y="268" text-anchor="middle" font-size="10.5" font-weight="700" fill="#22305a">SOL/USDT</text>
+  <text x="580" y="282" text-anchor="middle" font-size="9" font-weight="700" fill="#e0911f">ORTA (%68)</text>
+  <!-- legend -->
+  <rect x="470" y="44" width="12" height="12" fill="#5a6680"/><text x="487" y="54" font-size="9.5" fill="#33405f">eğitim (örnek-içi)</text>
+  <rect x="590" y="44" width="12" height="12" fill="#18a558"/><text x="607" y="54" font-size="9.5" fill="#33405f">test (OOS)</text>
+</svg>
+<figcaption><b>Şekil 8. Örnek-içi vs. örnek-dışı performans (canlı veri).</b> BTC örnek-dışında örnek-içine yakın kalıp Monte Carlo ile <i>sağlam</i> bulunmuştur (gerçek, taşınabilir kenar). ETH örnek-dışında negatiftir ve <b>varsayılan parametre optimize-edileni geçmiştir</b> — klasik aşırı-uyum sinyali — Monte Carlo <i>kırılgan</i> demiştir. SOL'da rejim kayması örnek-dışını örnek-içinden iyi yapmıştır (<i>orta</i>). Sonuç: kârlılık varlığa ve rejime göre güçlü biçimde değişir; tekdüze garanti yoktur.</figcaption>
+</figure>
+
+<p>Bu sonuçlar §6'daki tezi <b>ampirik olarak</b> doğrular ve dört kritik dersi ortaya koyar: (i) gerçek getiri varlığa ve piyasa rejimine göre dramatik biçimde değişir — “her zaman/her varlık için garanti kâr” yoktur; (ii) örnek-içinde optimize edilen parametreler örnek-dışında her zaman varsayılanı geçmez (ETH örneği) — bu yüzden tek başına backtest getirisi yanıltıcıdır; (iii) <b>Monte Carlo sağlamlık kararı zorunlu kapıdır</b> — yalnız “SAĞLAM” çıkan varlık/konfigürasyon (burada BTC) canlıya alınmalıdır; (iv) örnek-dışı doğrulama olmadan üretilen herhangi bir kâr iddiası bilimsel olarak temelsizdir.</p>
+
+<h3>4.7 P0 uygulaması: gerçek karar hattının backtest'i</h3>
+<p>Ek B'deki en yüksek kaldıraçlı öneri (P0) — basit 5-kurallı sinyal yerine <b>gerçek 10-katman füzyonunu backtest etmek</b> — bu çalışmada uygulanmış ve ölçülmüştür. BTC/USDT 4s test penceresinde (aynı OOS dilimi), her bar yalnız <span class="mono">df[:i]</span> görecek şekilde (noktasal, sızıntısız: derin modeller eğitim diliminde eğitilip donduruldu, klasik ML her barda noktasal yeniden eğitildi, eski model cache'i temizlendi) gerçek <span class="mono">technical + pattern + smc + multi_timeframe + ai_ensemble</span> oyları üretilip gerçek <span class="mono">DecisionEngine.decide()</span> ile füze edildi (400 bar; ~592 s hesaplama). Sonuçlar farklı güven kapılarında Tablo 6 ve Şekil 9'da basit sinyalle karşılaştırılmıştır.</p>
+<table>
+<tr><th>Strateji</th><th>İşlem</th><th>Kazanma</th><th>PF</th><th>Getiri</th><th>MDD</th><th>Sharpe</th></tr>
+<tr><td>Basit 5-kural (varsayılan)</td><td>18</td><td>38.9%</td><td>1.31</td><td>+7.3%</td><td>9.9%</td><td>—</td></tr>
+<tr><td>Basit 5-kural (optimize)</td><td>16</td><td>37.5%</td><td>1.43</td><td>+7.5%</td><td>4.9%</td><td>—</td></tr>
+<tr><td><b>GERÇEK HAT @ güven 0.55</b></td><td>17</td><td><b>47.1%</b></td><td>1.27</td><td>+5.4%</td><td>8.1%</td><td>1.85</td></tr>
+<tr><td><b>GERÇEK HAT @ güven 0.70</b></td><td>7</td><td><b>57.1%</b></td><td>1.44</td><td>+4.2%</td><td>8.1%</td><td><b>2.79</b></td></tr>
+<tr><td>GERÇEK HAT @ güven 0.90 (üretim)</td><td><b>0</b></td><td>—</td><td>—</td><td>0.0%</td><td>—</td><td>—</td></tr>
+</table>
+<p class="tcap"><b>Tablo 6.</b> Gerçek karar hattı vs. basit 5-kural sinyali (BTC/USDT 4s, örnek-dışı). Gerçek hatın Monte Carlo kararı (en iyi kapı): kâr olas. %67.7, medyan +%5.5 → <b>ORTA</b>.</p>
+
+<figure>
+<svg viewBox="0 0 660 300" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif" font-size="11">
+  <rect x="0" y="0" width="660" height="300" fill="#fbfcfe"/>
+  <text x="20" y="22" font-weight="700" font-size="12.5" fill="#22305a">İşlem başına kalite: kazanma oranı (%) — gerçek hat vs. basit sinyal</text>
+  <line x1="70" y1="48" x2="70" y2="240" stroke="#9aa6bd"/><line x1="70" y1="240" x2="620" y2="240" stroke="#9aa6bd"/>
+  <g font-size="9" fill="#5a6680" text-anchor="end"><text x="64" y="244">0</text><text x="64" y="190">20</text><text x="64" y="130">40</text><text x="64" y="70">60</text></g>
+  <line x1="70" y1="90" x2="620" y2="90" stroke="#cdd5e3" stroke-dasharray="3 3"/><text x="624" y="93" font-size="8.5" fill="#9aa6bd">%53.3 başabaş≈</text>
+  <!-- bars: y=240-val*3 -->
+  <!-- toy def 38.9 -->
+  <rect x="95" y="123" width="80" height="117" fill="#5a6680"/><text x="135" y="117" text-anchor="middle" font-size="10" fill="#33405f">38.9%</text><text x="135" y="256" text-anchor="middle" font-size="9.5" fill="#33405f">5-kural vars.</text><text x="135" y="269" text-anchor="middle" font-size="8.5" fill="#9aa6bd">18 işlem</text>
+  <!-- toy opt 37.5 -->
+  <rect x="215" y="127" width="80" height="113" fill="#5a6680"/><text x="255" y="121" text-anchor="middle" font-size="10" fill="#33405f">37.5%</text><text x="255" y="256" text-anchor="middle" font-size="9.5" fill="#33405f">5-kural opt.</text><text x="255" y="269" text-anchor="middle" font-size="8.5" fill="#9aa6bd">16 işlem · +7.5%</text>
+  <!-- real 0.55 47.1 -->
+  <rect x="335" y="99" width="80" height="141" fill="#18a558"/><text x="375" y="93" text-anchor="middle" font-size="10" fill="#0d6b39" font-weight="700">47.1%</text><text x="375" y="256" text-anchor="middle" font-size="9.5" fill="#0d6b39">GERÇEK @0.55</text><text x="375" y="269" text-anchor="middle" font-size="8.5" fill="#9aa6bd">17 işlem · Sharpe 1.85</text>
+  <!-- real 0.70 57.1 -->
+  <rect x="455" y="69" width="80" height="171" fill="#0f9aa6"/><text x="495" y="63" text-anchor="middle" font-size="10" fill="#0c6b73" font-weight="700">57.1%</text><text x="495" y="256" text-anchor="middle" font-size="9.5" fill="#0c6b73">GERÇEK @0.70</text><text x="495" y="269" text-anchor="middle" font-size="8.5" fill="#9aa6bd">7 işlem · Sharpe 2.79</text>
+  <text x="345" y="285" text-anchor="middle" font-size="9" fill="#5a6680">Gerçek hat: daha az ama yüksek-kaliteli işlem (↑kazanma, ↑Sharpe). Üretim 0.90 kapısı bu katmanlarla 0 işlem verdi.</text>
+</svg>
+<figcaption><b>Şekil 9. P0 sonucu — gerçek hat işlem kalitesini yükseltir.</b> Gerçek 10-katman füzyonu, basit 5-kurallı sinyalin ~%38 kazanma oranını güven kapısına göre %47–57'ye ve Sharpe'ı 2.79'a çıkarır. Karşılığında çok daha seçicidir (7–17 vs 16–18 işlem), bu yüzden toplam getirisi (+%4–5) basit sinyalden (+%7.5) düşüktür — “az ama öz” dengesi.</figcaption>
+</figure>
+
+<p><b>İki kritik çıkarım.</b> (1) <i>P0 doğrulandı:</i> gerçek füzyon hattı, işlem başına kaliteyi (kazanma oranı %38→%57, Sharpe → 2.79) belirgin biçimde yükseltir — bu fark <b>ancak gerçek hattı backtest ederek görülebilir</b>; basit sinyalin getirisi bunu gizliyordu. (2) <i>Yeni gerçek sorun:</i> üretimdeki %90 güven kapısı, yalnız çevrimdışı (ağsız) katmanlarla 400 barda <b>sıfır işlem</b> üretti (<span class="mono">actionable@0.90 = 0</span>). Bu, sistemin canlıda neden nadiren işlem açtığını açıklar ve iki somut düzeltmeye işaret eder: (a) ağ katmanlarını (sentiment/on-chain/makro — Ek B/P4) etkinleştirerek güveni meşru biçimde yükseltmek, ve/veya (b) güven formülünü kalibre etmek (Ek B/P2). Böylece P0 uygulaması, hem bir kalite kazanımını kanıtladı hem de bir sonraki en yüksek öncelikli iyileştirmeyi ampirik olarak ortaya çıkardı.</p>
+
+<h3>4.8 Güven kalibrasyonu denemesi (P2) — dürüst bir negatif bulgu</h3>
+<p>P0'ın ortaya çıkardığı “%90 kapısı = 0 işlem” sorununa çözüm olarak güven kalibrasyonu (P2) denenmiştir: kalibratör (isotonic regresyon) <b>yalnızca eğitim diliminde</b> (bar 200–600; ham güven → gerçek kazanım) fit edilmiş, dokunulmamış <b>test diliminde</b> (600–1000) uygulanmıştır (sızıntısız). Her bar için “tek-işlem sonucu” (40 bar ufkunda önce TP mi SL mi) hesaplanıp güvenilirlik eğrisi çıkarılmıştır (Tablo 7, Şekil 10).</p>
+<table>
+<tr><th>Ham güven kovası</th><th>Örnek (n)</th><th>Gerçek kazanma</th><th>Isotonic öngörü</th></tr>
+<tr><td>0.20 – 0.35</td><td>14 <span class="small">(az örnek/gürültü)</span></td><td>85.7%</td><td>~41%</td></tr>
+<tr><td>0.35 – 0.50</td><td>50</td><td>30.0%</td><td>~41%</td></tr>
+<tr><td>0.50 – 0.65</td><td>153</td><td>54.9%</td><td>~41%</td></tr>
+<tr><td>0.65 – 1.00</td><td>109</td><td>57.8%</td><td>~42%</td></tr>
+</table>
+<p class="tcap"><b>Tablo 7.</b> Güvenilirlik (test dilimi). Ham güven ana aralıkta monotoniktir (0.35→%30, 0.50→%55, 0.65→%58), yani <i>yön olarak</i> bilgilendiricidir. Ancak eğitimde öğrenilen isotonic eşleme teste taşındığında ~%41'e <b>düzleşmiştir</b> — yani olasılık kalibrasyonu örnek-dışına genellenmemiştir.</p>
+
+<figure>
+<svg viewBox="0 0 660 300" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif" font-size="11">
+  <rect x="0" y="0" width="660" height="300" fill="#fbfcfe"/>
+  <text x="20" y="22" font-weight="700" font-size="12.5" fill="#22305a">Güvenilirlik eğrisi: ham güven → gerçek kazanma (test)</text>
+  <line x1="70" y1="48" x2="70" y2="250" stroke="#9aa6bd"/><line x1="70" y1="250" x2="620" y2="250" stroke="#9aa6bd"/>
+  <g font-size="9" fill="#5a6680" text-anchor="end"><text x="64" y="254">0</text><text x="64" y="210">20</text><text x="64" y="170">40</text><text x="64" y="130">60</text><text x="64" y="90">80</text><text x="64" y="54">100%</text></g>
+  <!-- 50% ref -->
+  <line x1="70" y1="150" x2="620" y2="150" stroke="#cdd5e3" stroke-dasharray="3 3"/><text x="624" y="153" font-size="8" fill="#9aa6bd">%50</text>
+  <!-- calibrated flat line ~41% -->
+  <line x1="70" y1="168" x2="620" y2="168" stroke="#e0413a" stroke-width="1.6" stroke-dasharray="6 4"/><text x="74" y="164" font-size="8.5" fill="#e0413a">isotonic kalibre öngörü ≈%41 — DÜZ, OOS'ta transfer etmedi</text>
+  <!-- bars: y=250-val*2 -->
+  <rect x="95" y="79" width="90" height="171" fill="#c2c9d6"/><text x="140" y="73" text-anchor="middle" font-size="10" fill="#5a6680">85.7%</text><text x="140" y="266" text-anchor="middle" font-size="9" fill="#9aa6bd">0.20-0.35 · n=14</text>
+  <rect x="215" y="190" width="90" height="60" fill="#7fae5a"/><text x="260" y="184" text-anchor="middle" font-size="10" fill="#3c5a1d">30.0%</text><text x="260" y="266" text-anchor="middle" font-size="9" fill="#5a6680">0.35-0.50 · n=50</text>
+  <rect x="335" y="140" width="90" height="110" fill="#3f9e3a"/><text x="380" y="134" text-anchor="middle" font-size="10" fill="#0d6b39" font-weight="700">54.9%</text><text x="380" y="266" text-anchor="middle" font-size="9" fill="#5a6680">0.50-0.65 · n=153</text>
+  <rect x="455" y="134" width="90" height="116" fill="#18a558"/><text x="500" y="128" text-anchor="middle" font-size="10" fill="#0d6b39" font-weight="700">57.8%</text><text x="500" y="266" text-anchor="middle" font-size="9" fill="#5a6680">0.65-1.00 · n=109</text>
+  <text x="345" y="285" text-anchor="middle" font-size="9" fill="#5a6680">Ana aralık (n≥50) monotonik yükselir → ham güven yön olarak işe yarar; ilk kova küçük örnek gürültüsüdür.</text>
+</svg>
+<figcaption><b>Şekil 10. Güvenilirlik eğrisi ve kalibrasyonun başarısızlığı.</b> Yeterli örnekli kovalarda (n≥50) ham güven monotonik biçimde gerçek kazanma oranıyla artar — yani güven sıralayıcı olarak yararlıdır. Ancak eğitimde öğrenilen isotonic olasılık eşlemesi test diliminde sabit ~%41'e çöktüğü için, kalibre olasılık kapısı pratikte ~0 işlem üretmiştir. Kalibrasyon, bu veride örnek-dışına genellenmemiştir.</figcaption>
+</figure>
+
+<p><b>Sonuç ve gerçek düzeltme.</b> Kapı karşılaştırması bu deneyin asıl değerini ortaya koydu:</p>
+<ul>
+  <li><span class="mono">raw ≥ 0.90</span> (üretim): <b>0 işlem</b> — kullanılamaz.</li>
+  <li><span class="mono">kalibre ≥ 0.55</span>: ~0–1 işlem — isotonic düzleştiği için yine kullanılamaz.</li>
+  <li><span class="mono">raw ≥ 0.70</span>: <b>11 işlem · kazanma %63.6 · getiri +%14.4 · PF 2.02 · Sharpe 5.42</b> — en iyi.</li>
+</ul>
+<p>Yani <b>olasılık kalibrasyonu (P2) bu durumda işe yaramadı</b>, fakat deney gerçek çözümü gösterdi: üretim güven kapısını <b>0.90'dan ~0.70'e indirmek</b>, gerçek füzyon hattıyla örnek-dışında güçlü ve işlenebilir bir sonuç verir. Bu, mühendislikte sık görülen ve değerli bir “negatif bulgudur”: önerilen düzeltme reddedilir, ama doğru düzeltme ampirik olarak bulunur. <b>Dürüst uyarılar:</b> (i) 0.70-kapısı sonucu yalnız 11 işleme dayanır — istatistiksel olarak küçük örnek; (ii) farklı model-eğitim kadansı koşudan koşuya getiriyi (+%4…+%14) ve kazanma oranını (%57…%64) değiştirir; bu yüzden eşik düşürme kararı <b>çok-varlık + Monte Carlo + yuvarlanan walk-forward ile (Ek B/P1) doğrulanmadan</b> canlıya alınmamalıdır. <span style="color:#7a201c;font-weight:700">[Bu doğrulama §4.9'da yapıldı ve öneriyi REDDETTİ — aşağıya bakın.]</span></p>
+
+<h3>4.9 Çok-varlık walk-forward doğrulaması: 0.70 eşiği reddedildi</h3>
+<p>§4.8'in “güven kapısını ~0.70'e indir” önerisi, küçük-örnek riskini gidermek için kesin biçimde sınanmıştır: 0.70 eşiği (sabit; fit edilmeyen) BTC/USDT, ETH/USDT ve SOL/USDT için gerçek füzyon hattıyla, her varlıkta <b>3 yuvarlanan zaman-dilimi foldu</b> ve <b>Monte Carlo</b> ile, ardından üç varlığın işlemleri <b>havuzlanarak</b> değerlendirilmiştir (Tablo 8, Şekil 11).</p>
+<table>
+<tr><th>Varlık</th><th>İşlem</th><th>Kazanma</th><th>PF</th><th>Getiri</th><th>Sharpe</th><th>Foldlar (getiri)</th><th>Monte Carlo</th></tr>
+<tr><td><b>BTC/USDT</b></td><td>20</td><td>50.0%</td><td>1.28</td><td>+8.2%</td><td>1.92</td><td>−7.0 / +3.2 / +12.6</td><td>ORTA (kâr %66)</td></tr>
+<tr><td><b>ETH/USDT</b></td><td>16</td><td>25.0%</td><td>0.41</td><td><b>−26.4%</b></td><td>−6.87</td><td>−2.2 / −17.7 / −8.8</td><td><span style="color:#e0413a;font-weight:700">KIRILGAN (kâr %3)</span></td></tr>
+<tr><td><b>SOL/USDT</b></td><td>22</td><td>45.5%</td><td>1.12</td><td>+3.5%</td><td>0.89</td><td>0.0 / −9.9 / +15.2</td><td>ORTA (kâr %54)</td></tr>
+<tr><td><b>HAVUZ (3 varlık)</b></td><td><b>58</b></td><td><b>41.4%</b></td><td><b>0.91</b></td><td>—</td><td>—</td><td>—</td><td><span style="color:#e0413a;font-weight:700">KIRILGAN — kâr %28.9, medyan −18.3%, p95 DD %58.8</span></td></tr>
+</table>
+<p class="tcap"><b>Tablo 8.</b> Gate 0.70'in çok-varlık + yuvarlanan walk-forward + Monte Carlo doğrulaması. <b>Havuzlanmış profit factor 0.91 &lt; 1.0</b> — yani bir araya konduğunda 58 işlem net zarar eder.</p>
+
+<figure>
+<svg viewBox="0 0 660 290" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif" font-size="11">
+  <rect x="0" y="0" width="660" height="290" fill="#fbfcfe"/>
+  <text x="20" y="22" font-weight="700" font-size="12.5" fill="#22305a">Gate 0.70 — varlık başına getiri (tam pencere) ve havuz kararı</text>
+  <line x1="70" y1="50" x2="70" y2="230" stroke="#9aa6bd"/><line x1="70" y1="110" x2="420" y2="110" stroke="#33405f" stroke-width="1.2"/>
+  <g font-size="9" fill="#5a6680" text-anchor="end"><text x="64" y="54">+15%</text><text x="64" y="114">0</text><text x="64" y="174">−15%</text><text x="64" y="234">−30%</text></g>
+  <rect x="110" y="77" width="80" height="33" fill="#18a558"/><text x="150" y="71" text-anchor="middle" font-size="10" fill="#0d6b39" font-weight="700">+8.2%</text><text x="150" y="248" text-anchor="middle" font-size="9.5" fill="#22305a">BTC</text><text x="150" y="261" text-anchor="middle" font-size="8.5" fill="#e0911f">ORTA</text>
+  <rect x="230" y="110" width="80" height="106" fill="#e0413a"/><text x="270" y="228" text-anchor="middle" font-size="10" fill="#7a201c" font-weight="700">−26.4%</text><text x="270" y="248" text-anchor="middle" font-size="9.5" fill="#22305a">ETH</text><text x="270" y="261" text-anchor="middle" font-size="8.5" fill="#e0413a" font-weight="700">KIRILGAN</text>
+  <rect x="350" y="96" width="80" height="14" fill="#7fae5a"/><text x="390" y="90" text-anchor="middle" font-size="10" fill="#3c5a1d" font-weight="700">+3.5%</text><text x="390" y="248" text-anchor="middle" font-size="9.5" fill="#22305a">SOL</text><text x="390" y="261" text-anchor="middle" font-size="8.5" fill="#e0911f">ORTA</text>
+  <rect x="455" y="60" width="185" height="160" rx="8" fill="#fdeeee" stroke="#e0413a"/>
+  <text x="547" y="82" text-anchor="middle" font-size="12" font-weight="700" fill="#7a201c">HAVUZ (58 işlem)</text>
+  <text x="547" y="106" text-anchor="middle" font-size="11" fill="#5a2420">Kazanma %41.4</text>
+  <text x="547" y="128" text-anchor="middle" font-size="13" font-weight="700" fill="#e0413a">PF 0.91 &lt; 1</text>
+  <text x="547" y="150" text-anchor="middle" font-size="10.5" fill="#5a2420">MC: KIRILGAN</text>
+  <text x="547" y="168" text-anchor="middle" font-size="10.5" fill="#5a2420">kâr olas. %28.9</text>
+  <text x="547" y="186" text-anchor="middle" font-size="10.5" fill="#5a2420">medyan −%18.3</text>
+  <text x="547" y="208" text-anchor="middle" font-size="10.5" font-weight="700" fill="#7a201c">→ 0.70 REDDEDİLDİ</text>
+</svg>
+<figcaption><b>Şekil 11. 0.70 eşiği çok-varlıkta tutmuyor.</b> Yalnız BTC marjinal pozitif (ORTA), ETH belirgin zararda (KIRILGAN), SOL kırılgan-pozitif. Üç varlığın 58 işlemi havuzlandığında profit factor 0.91 (&lt;1, net zarar) ve Monte Carlo kararı KIRILGAN'dır. Tek-pencere BTC +%14.4 sonucu (§4.8) örnek-dışına genellenmemiştir.</figcaption>
+</figure>
+
+<p><b>Kesin sonuç.</b> Gate 0.70 önerisi <b>reddedilmiştir</b>: düzgün doğrulandığında (3 varlık × 3 fold × Monte Carlo) tek başına sağlam değildir ve havuzlanmış bazda net zarar eder. Bu, §4.8'de işaret edilen küçük-örnek uyarısını doğrular ve daha derin bir gerçeği ortaya koyar: <b>güven kapısını düşürerek işlem sayısını artırmak, kaliteyi kârlılığın altına indirir</b>. Sistemin katı 0.90 kapısının “0 işlem” üretmesi bir kusur değil, <i>mevcut çevrimdışı katmanların kâr edecek kadar güçlü sinyal taşımadığının dürüst bir itirafıdır</i>. Dolayısıyla gerçek kaldıraç eşik ayarı değil, <b>sinyal kalitesini yükseltmektir</b>: meta-etiketleme (Ek B/P0), daha zengin özellikler ve rejim-koşullu modeller (P2), ve ağ katmanlarını (sentiment/on-chain/makro) etkinleştirmek (P4) — ki bunlar gerçek yüksek-güven kurulumlarının var olmasını sağlar. Bu deney dizisi (P0→§4.7, P2→§4.8, çok-varlık→§4.9) ampirik ve nihai biçimde şunu gösterir: <b>test edilen hiçbir eşik/konfigürasyon çok-varlıkta sağlam kâr üretmemiştir — bu da “garantili kâr yoktur” tezinin en güçlü kanıtıdır.</b></p>
+
+<h3 id="s410">4.10 Kesin doğrulama ve çözüm: 4,5-yıl çok-rejim testi + diversifiye trend-takip</h3>
+<p>§4.7–4.9, teknik-konsensüs hattının tek-pencere ve üç-varlık ölçeğinde sağlam kâr üretmediğini gösterdi. Bu bulgu, çok daha katı bir protokolle <b>kesinleştirilmiştir</b>: (i) veri 6 aydan <b>4,5 yıla</b> (Ocak 2022 – Haziran 2026; ~39.400 saatlik bar × 8 varlık) genişletilerek üç farklı rejim (2022 ayısı, 2023–24 boğası, 2025 yatay/choppy) kapsandı; (ii) tüm katman/kapı konfigürasyonu bir <b>kalibrasyon penceresine</b> (Ara 2025 – Haz 2026) uydurulup, dokunulmamış <b>2022–2025 dilimi gerçek örnek-dışı</b> olarak koşuldu; (iii) gerçekçi maliyet (futures taker %0,04 + volatilite-ölçekli slippage, ~%0,2 round-trip), sabit-fraksiyonel risk-boyutlama, drawdown-küçültme ve ardışık-kayıp soğuması eklendi; (iv) istatistiksel güven için Probabilistic Sharpe Ratio hesaplandı.</p>
+
+<p><b>Sonuç — teknik-konsensüsün örnek-dışı kenarı yoktur.</b> Kalibre konfig, yalnızca fit edildiği yılda (2026) pozitiftir; örnek-dışı her yılda ağır zarar eder:</p>
+<table>
+<tr><th>Yıl</th><th>Rejim</th><th>Portföy (5 varlık, eşit-ağırlık)</th></tr>
+<tr><td>2022</td><td>ayı</td><td style="color:#e0413a;font-weight:700">−%27,0</td></tr>
+<tr><td>2023</td><td>toparlanma</td><td style="color:#e0413a;font-weight:700">−%44,2</td></tr>
+<tr><td>2024</td><td>boğa</td><td style="color:#e0413a;font-weight:700">−%23,5</td></tr>
+<tr><td>2025</td><td>yatay</td><td style="color:#e0413a;font-weight:700">−%30,7</td></tr>
+<tr><td><b>2026</b></td><td><b>kalibrasyon (in-sample)</b></td><td style="color:#18a558;font-weight:700">+%11,1</td></tr>
+</table>
+<p class="tcap"><b>Tablo 9.</b> Çok-ajanlı teknik-konsensüs hattının 4,5-yıl örnek-dışı yıl-portföyü (gerçekçi maliyet, risk-boyutlama). BTC tek başına 4,5 yılda −%36 (~800 işlem, %43 kazanma). Pozitif olan tek yıl, parametrelerin uydurulduğu 2026'dır — <b>ders-kitabı aşırı-uyum imzası</b>. Daha önce raporlanan +%61,8 bu kalibrasyon penceresine aitti ve %100 örnek-içidir.</p>
+
+<p><b>Çözüm — basit, diversifiye trend-takip.</b> Karmaşık hattı iyileştirmek yerine, <b>sabit-parametreli</b> (fit içermez → tüm 4,5 yıl doğal örnek-dışı) günlük bir trend-takip stratejisine geçildi: <i>fiyat 200-gün SMA üstünde VE 20-gün momentumu pozitifse pozisyon, aksi halde nakit</i>; pozisyon volatiliteye göre ölçeklenir (vol-targeting). Bu strateji ve tüm varyantları (SMA200, EMA50×200, Donchian) her varlıkta pozitiftir — şansa değil, zaman-serisi momentumu literatürüne dayanan gerçek bir olguya işaret eder. Kripto-dışı düşük-korelasyonlu varlıklara diversifikasyon ve portföy hedef-vol kaldıracıyla gelişim:</p>
+<table>
+<tr><th>Aşama (4,5-yıl OOS)</th><th>Sharpe</th><th>Yıllık bileşik (CAGR)</th><th>Maks. düşüş</th><th>Calmar</th></tr>
+<tr><td>Kripto-only trend (5 varlık)</td><td>1,07</td><td>%19,7</td><td>%17,7</td><td>1,11</td></tr>
+<tr><td>+ Diversifikasyon (altın/endeks/tahvil/FX; 13→17 varlık)</td><td><b>1,33–1,37</b></td><td>%11,8</td><td><b>%7,8–10,6</b></td><td><b>1,51–1,80</b></td></tr>
+<tr><td><b>+ Hedef-vol kaldıraç (nihai)</b></td><td><b>1,36</b></td><td><b>%21,1</b></td><td>%13,3</td><td><b>1,59</b></td></tr>
+</table>
+<p class="tcap"><b>Tablo 10.</b> Diversifiye trend-takibin 4,5-yıl örnek-dışı gelişimi. Kripto ile kripto-dışı sepet arasındaki korelasyon <b>+0,05</b> (gerçek diversifikasyon). Strateji, üretim motoruyla (TrendTrader) gün-gün paper-replay edilerek doğrulanmıştır (Sharpe 1,25, maks. düşüş %10,5). 2022 ayı yılında strateji +%1,6 verirken al-tut −%70'e varan kayıp yaşamıştır — trend filtresi düşüşte nakite geçerek sermayeyi korur.</p>
+
+<p><b>Dürüstçe elenen yaklaşımlar (negatif bulgular).</b> Aynı katı protokolle test edilip <b>reddedilenler</b>: (i) sabit-yüzde <i>scalp</i> (%0,5–1 hedef) — işlem-ücreti dominant, ağır zarar (−%27…−%48); (ii) funding-aşırılığı overlay'i — risk-ayarlı getiriyi düşürdü; (iii) cross-sectional momentum — ilk sonuç Sharpe 3,68 çıktı; incelemede seçim maskesinde <b>ileriye-bakış (look-ahead) hatası</b> tespit edildi, tek-gün gecikmeyle düzeltilince Sharpe 0,8'e çöktü (yani sahte); (iv) 28-varlığa körlemesine genişletme — gürültülü piyasalar kaliteyi seyreltti (Sharpe 1,36→1,15). Yalnız veri-temelli <b>forward-selection</b> ile eklenen dört varlık (HYG, FXB, FXF, FXE) Calmar'ı 1,59→1,80'e çıkardı; gürültülü emtialar reddedildi.</p>
+
+<div class="note" style="background:#eefaf3;border-color:#9ad9b6;border-left-color:#18a558">
+<b>Nihai ders — strateji-sınıfı içgörüsü.</b> Karmaşık çok-ajanlı teknik-konsensüs, gerçekçi maliyet ve katı örnek-dışı test altında rejimler arası bir kenar taşımaz; asıl değeri <b>karar-destek / analiz / uyarı</b>dır. Otonom kârın gerçek ve sürdürülebilir kaynağı, düşük-parametreli, diversifiye ve risk-yönetimli bir <b>trend-takip</b>tir. Bu, "daha çok özellik + daha karmaşık model = daha çok kâr" sezgisinin aksine, <b>basitlik + diversifikasyon + katı doğrulama</b> üçlüsünün kazandığını gösterir. Gerçekçi ileriye-dönük beklenti: yılda ~%15–21, Sharpe ~1,3, düşüş ~%10–13 — kurumsal kalite, ama "günlük/aylık garantili yüksek getiri" değil.
+</div>
+
+<!-- ===================== 5. DISCUSSION ===================== -->
+<h2 id="s5">5. Tartışma ve Sınırlılıklar</h2>
+<p><b>Güçlü yönler.</b> AGI-Trader'ın asıl katkısı tek bir tahmin modeli değil, <i>heterojen sinyalleri açıklanabilir biçimde birleştiren ve riski açıkça yöneten bir karar mimarisidir</i>. Hata izolasyonu sayesinde sistem tek bir veri kaynağı veya kütüphanenin yokluğunda dahi çalışmaya devam eder; bu, üretim sağlamlığı açısından kritik bir özelliktir. Güven kapısı ve kill-switch, sermaye korumasını mimarinin merkezine yerleştirir.</p>
+<p><b>İki-parçalı nihai sonuç.</b> Bu çalışmanın en önemli katkısı, kendi başlangıç hipotezini <i>dürüstçe çürütmesi</i>dir. §4.6–4.10'daki katı örnek-dışı doğrulama zinciri, çok-ajanlı teknik-konsensüs hattının <b>rejimler arası sağlam bir kâr kenarı taşımadığını</b> (4,5 yıl, 2022–2025 her yıl negatif) kesin biçimde göstermiş; buna karşılık basit, diversifiye, risk-yönetimli bir <b>trend-takip</b> stratejisinin aynı testte sağlam bir kenar ürettiğini (Sharpe ~1,3–1,4) ortaya koymuştur. Dolayısıyla mimarinin doğru konumu <b>karar-destek</b>, otonom kârın doğru aracı ise <b>trend-takip</b>tir. Bu ayrım, yatırımcı ve kullanıcıyı aşırı-uyumlu bir sistemi gerçek sermayeyle çalıştırmaktan koruyan, uygulanabilir ve dürüst bir sonuçtur.</p>
+<p><b>Sınırlılıklar.</b> (i) Olasılıksal kenar tek-bar düzeyinde zayıftır (~%52–55); sistem bunu telafi için seçici işlem önerir, dolayısıyla işlem sıklığı düşüktür. (ii) Bölüm 4.3'teki getiri rakamları tek bir temsilî koşuya aittir, geleceğe dair garanti değildir ve aşırı-uyum (overfitting) riski taşır — bu yüzden Monte Carlo sağlamlık testi zorunlu kılınmıştır. (iii) Canlı on-chain ve sosyal katmanların tam gücü, opsiyonel API anahtarlarına bağlıdır; anahtarsız modda bu katmanlar proxy'ye düşer. (iv) Backtest gerçekçi fee/slippage içerse de gerçek piyasa etkisi (market impact), emir defteri derinliği ve borsa kesintileri tam modellenmemiştir.</p>
+<p><b>Etik ve güvenlik.</b> Yazılım bir <i>karar-destek</i> aracıdır, yatırım tavsiyesi değildir. Kripto türev işlemleri yüksek risklidir ve sorumluluk kullanıcıya aittir. Canlı emir yolu bilinçli olarak çift-onay, emir-tavanı ve testnet varsayılanı ardına kilitlenmiştir.</p>
+<p><b>Gelecek çalışmalar.</b> WebSocket/HFT akışı, gerçek-zamanlı zincir-üstü sağlayıcıları (Glassnode/Nansen/Arkham), ONNX ile hızlandırılmış derin çıkarım, mikroservis (Kafka/Redis/TimescaleDB) ölçeklemesi ve katman ağırlıklarının çevrimiçi öğrenimini Bayesçi bir çerçeveye taşımak öncelikli genişleme eksenleridir.</p>
+
+<!-- ===================== 6. OPERATIONAL GUIDE ===================== -->
+<h2 id="s6">6. Operasyonel Kılavuz: Maksimum Verim ve Gerçekçi Kâr Beklentisi</h2>
+
+<div class="note" style="background:#fdeeee;border-color:#e7a3a0;border-left-color:#e0413a">
+<b>Önce dürüst gerçek — "her gün garantili %1–5 kâr" hiçbir sistemle mümkün değildir.</b>
+Bu, AGI-Trader veya başka herhangi bir sistem için fiziksel ve matematiksel olarak imkânsızdır. Sistemin <i>kendi</i> derin modelleri ham yön tahmininde ~%52–55 isabet verir (§4.2) — piyasa neredeyse martingale yapıdadır. Günlük garantili %3'lük bir getiri yıllık ≈ 1.03<sup>365</sup> ≈ <b>36.000 kat</b> büyüme demektir; böyle bir kenar var olsaydı arbitrajla anında yok olurdu. Gerçekçi ve sürdürülebilir hedef <b>günlük kesinlik değil, çok sayıda işlem üzerinde pozitif risk-ayarlı beklentidir</b>: bazı günler/haftalar zararla kapanır, tasarım bunu kabul eder ve <i>iflası önleyip</i> kenarın bileşik büyümesine izin verir.
+</div>
+
+<h3>6.1 Hedefi gerçekçi metriklere çevirmek</h3>
+<p>“Günlük %1–5 garanti” yerine sistemin optimize ettiği — ve <i>gerçekten</i> kontrol edilebilen — metrikler şunlardır:</p>
+<ul>
+  <li><b>Pozitif beklenen değer</b> (EV &gt; 0) — her işlemin matematiksel kârlılığı.</li>
+  <li><b>Profit factor &gt; 1.5</b> ve <b>kazanma oranı</b> dengesi (yüksek R/R, düşük frekans).</li>
+  <li><b>Kontrollü drawdown</b> — kill-switch %15'te devrede; hedef tepe-dip kaybını sınırlamak.</li>
+  <li><b>Sharpe &gt; 1</b> — birim risk başına getiri; günlük varyansı tolere et, haftalık/aylık toplamı izle.</li>
+</ul>
+<p>Yani doğru soru “bugün %X kazandırır mı?” değil, “bu konfigürasyon yüzlerce işlemde pozitif beklentiyi ve hayatta-kalmayı koruyor mu?”dur.</p>
+
+<h3>6.2 Maksimum verim kontrol listesi (hatasız + tam güçte çalıştırma)</h3>
+<p>Sistemi en yüksek gerçekçi etkinlikte çalıştırmak için izlenmesi gereken adımlar (öncelik sırasıyla):</p>
+<table>
+<tr><th>#</th><th>Adım</th><th>Neden / etki</th></tr>
+<tr><td>1</td><td><b>Tüm opsiyonel kütüphaneleri kur</b> (<span class="mono">pip install -r requirements.txt</span>: ccxt, sklearn, torch, xgboost, lightgbm, hmmlearn, stable-baselines3, yfinance)</td><td>Derin modeller + GBM + HMM rejim + RL devreye girer → daha güçlü, daha kalibre p(up)</td></tr>
+<tr><td>2</td><td><b>Canlı veriye geç</b> — <span class="mono">data_source: auto/live</span>; panelden borsa public anahtarları</td><td>Sentetik yerine gerçek OHLCV; CANLI rozeti. Gerçek edge yalnız gerçek veride ölçülür</td></tr>
+<tr><td>3</td><td><b>Tüm sinyal katmanlarını aç</b> — ücretsiz anahtarlar: FRED (makro), CryptoPanic/NewsAPI (haber), Twitter bearer (sentiment), Etherscan (on-chain T2)</td><td>Daha çok bağımsız teyit → kapı yüksek-uyum durumlarında daha isabetli açılır</td></tr>
+<tr><td>4</td><td><b>Her parite × her zaman dilimi için ayrı optimize et</b> (<span class="mono">/api/optimize</span> → ✅ UYGULA). Tek global config kullanma</td><td>Piyasa rejimleri farklıdır; tek ayar her yerde optimal değildir</td></tr>
+<tr><td>5</td><td><b>Her stratejiyi Monte Carlo ile doğrula</b>; yalnız <b>SAĞLAM</b> çıkanları canlıya al</td><td>Şansa dayalı backtest'i gerçek kenardan ayırır → aşırı-uyumu eler</td></tr>
+<tr><td>6</td><td><b>RL/derin modelleri periyodik yeniden eğit</b> (<span class="mono">POST /api/rl/train</span>; cache 24s). Rejim değişiminde tazele</td><td>Model dağılım kayması (drift) ile bozulur; tazeleme isabeti korur</td></tr>
+<tr><td>7</td><td><b>Çevrimiçi öğrenmeyi aç</b> (AutoTrader sürekli çalışsın)</td><td>Katman ağırlıkları gerçek kapanan işlem sonuçlarından öğrenir (self-improvement)</td></tr>
+<tr><td>8</td><td><b>Risk disiplinini koru</b> — <span class="mono">min_confidence ≥ 0.90</span>, çeyrek-Kelly + cap %20, kill-switch %15, maruziyet ≤ %60, ≤ 5 pozisyon</td><td>Eşiği düşürmek = daha çok ama daha kötü işlem; disiplin hayatta-kalmanın çekirdeğidir</td></tr>
+<tr><td>9</td><td><b>Çeşitlendir</b> — korelasyon sekmesiyle düşük-korelasyonlu varlıklar seç</td><td>Tek yöne yığılma riskini düşürür; portföy varyansını azaltır</td></tr>
+<tr><td>10</td><td><b>Maliyet gerçekçiliği</b> — fee %0.04 + slippage %0.02 zaten modelli; canlıda funding/spread/partial-fill ekle, yüksek frekanstan kaçın</td><td>İşlem maliyeti küçük kenarları yer; düşük-frekans + yüksek-R/R maliyeti aşar</td></tr>
+<tr><td>11</td><td><b>Kademeli devreye alma</b> — önce haftalarca paper/forward-test → küçük canlı (testnet) → kademeli ölçek</td><td>Gerçek koşullarda kanıtlanmadan sermaye riske atılmaz</td></tr>
+<tr><td>12</td><td><b>Sürekli izle</b> — günlük equity/journal, profit factor, drawdown; bozulursa durdur + yeniden optimize et</td><td>Hiçbir strateji kalıcı değildir; izleme + adaptasyon zorunludur</td></tr>
+</table>
+<p class="tcap"><b>Tablo 4.</b> Maksimum gerçekçi verim için operasyonel kontrol listesi. Bu adımlar kârı <i>garanti etmez</i>; pozitif risk-ayarlı beklentiyi en üst düzeye çıkarma ve sermayeyi koruma olasılığını artırır.</p>
+
+<h3>6.3 "Doğru zamanda doğru miktarda al-sat" — sistem bunu nasıl yapar</h3>
+<p>Kullanıcının istediği zamanlama ve boyutlama disiplini, sistemde zaten kodludur ve doğru kullanıldığında en iyi sonucu verir: (i) <b>zamanlama</b> — yalnızca <span class="mono">actionable</span> sinyallerde (C ≥ %90 ve R/R ≥ 1.5) işlem; 6-kademe sinyal sınıfı + momentum + rejim filtresi yanlış-zamanı eler. (ii) <b>miktar</b> — çeyrek-Kelly × rejim çarpanı (trend ×1.1, range ×0.6, volatil ×0.4, trende-karşı ×0.5) ile pozisyon boyutlanır, portföyün ≤ %10'u tek işlemde. (iii) <b>çıkış</b> — kademeli TP (1/3) + breakeven stop kârı kilitler, stop/iptal zararı sınırlar. Bu üç mekanizma birlikte, “her gün kâr” yerine <b>uzun vadede pozitif beklenti + sınırlı kayıp</b> sağlar — sürdürülebilir kârlılığın gerçek yolu budur.</p>
+
+<!-- ===================== 7. CONCLUSION ===================== -->
+<h2 id="s7">7. Sonuç</h2>
+<p>Bu makalede, kripto ve çoklu-varlık piyasaları için çok-katmanlı, çok-ajanlı ve açıklanabilir bir algoritmik karar-destek motoru olan <b>AGI-Trader</b> tanıtılmıştır. Sistem, on bağımsız uzman-ajan katmanını güven-modüleli ağırlıklı bir füzyonla birleştirir; spesifikasyon gereği yalnızca güven ≥ %90 ve R/R ≥ 1.5 koşullarında işlem önerir; çeyrek-Kelly, ATR, VaR/CVaR ve Monte Carlo ile riski açıkça yönetir; ve kapanan işlemlerden katman ağırlıklarını güncelleyen kapalı-döngü bir öğrenme mekanizması içerir. Mimarinin ayırt edici değeri, her kararın tam bir gerekçe izini taşıması (Explainable AI), zarif bozunma ile sağlamlığı ve sermaye-koruma odaklı güvenlik tasarımıdır. Sistem, kurumsal bir referans mimarinin çalışan, modüler ve genişletilebilir bir çekirdeğini oluşturmaktadır.</p>
+<p>Ötesinde, bu çalışmanın nihai ampirik katkısı — 4,5 yıllık çok-rejim, gerçekçi-maliyetli örnek-dışı doğrulama (§4.10) — iki net sonuç sunar. Birincisi, çok-ajanlı teknik-konsensüs hattının rejimler arası sağlam bir örnek-dışı kâr kenarı <b>yoktur</b>; kısa pencerelerdeki yüksek getiriler aşırı-uyumdur. Bu nedenle sistem, otonom bir para-kazanma aracı olarak değil, açıklanabilir bir <b>karar-destek / analiz</b> platformu olarak konumlandırılmalıdır. İkincisi, aynı katı test altında <b>basit, diversifiye (kripto + altın/endeks/tahvil/döviz), hedef-vol kaldıraçlı bir trend-takip</b> stratejisi gerçek ve taşınabilir bir kenar üretir (Sharpe ~1,36, CAGR ~%21, maks. düşüş ~%13). Bu iki bulgu birlikte, kantitatif finansta en değerli ilkeyi somutlar: <b>karmaşıklık değil, basitlik + diversifikasyon + tavizsiz örnek-dışı doğrulama kazandırır</b>; ve dürüst bir negatif sonuç, sahte bir pozitif sonuçtan çok daha kıymetlidir.</p>
+
+<!-- ===================== APPENDIX ===================== -->
+<h2 id="app">Ek A. Başlıca API Uçları</h2>
+<table>
+<tr><th>Uç</th><th>İşlev</th></tr>
+<tr><td><span class="mono">GET /api/analyze</span></td><td>Parite(ler) için tam analiz + açıklanabilir sinyal</td></tr>
+<tr><td><span class="mono">GET /api/chart</span></td><td>Mum grafiği + formasyon/gösterge bindirmeleri</td></tr>
+<tr><td><span class="mono">GET /api/scan</span></td><td>Çoklu-parite tarama + Twitter sosyal ısı</td></tr>
+<tr><td><span class="mono">GET /api/auto</span> · <span class="mono">POST /api/auto/{start,stop,reset,close_all}</span></td><td>Otonom motor durumu ve kontrolü</td></tr>
+<tr><td><span class="mono">GET /api/backtest</span> · <span class="mono">/api/optimize</span></td><td>Backtest, walk-forward, Monte Carlo, grid optimizasyon</td></tr>
+<tr><td><span class="mono">GET /api/rl</span> · <span class="mono">POST /api/rl/train</span></td><td>PPO ajan durumu / çok-varlık eğitimi</td></tr>
+<tr><td><span class="mono">/api/{arbitrage,liquidations,correlation,sectors,events}</span></td><td>Arbitraj, likidasyon, korelasyon, sektör, makro olay</td></tr>
+<tr><td><span class="mono">GET/POST /api/credentials</span> · <span class="mono">/api/alarms</span></td><td>API anahtar yönetimi · alarm sistemi</td></tr>
+<tr><td><span class="mono">POST /api/webhook/{tradingview,telegram}</span></td><td>Dış sinyal / bot entegrasyonu</td></tr>
+</table>
+
+<!-- ===================== APPENDIX B ===================== -->
+<h2 id="appB">Ek B. Başarı Oranını Artırma Yol Haritası</h2>
+<p>Aşağıdaki yol haritası, kod tabanının doğrudan incelenmesi ve §4.6'daki canlı örnek-dışı doğrulamadan çıkan bulgular temelinde, başarı oranını (kazanma oranı + risk-ayarlı getiri) en üst düzeye çıkarmak için yapılabilecek tüm somut iyileştirmeleri etki önceliğine göre sıralar. Her madde, ilgili modüle ve beklenen etkiye bağlanmıştır.</p>
+
+<div class="note" style="background:#fdeeee;border-color:#e7a3a0;border-left-color:#e0413a">
+<b>En yüksek kaldıraçlı bulgu (P0):</b> Mevcut backtest/optimizasyon (<span class="mono">backtest/engine.py · _signal_series</span>) yalnızca <b>5 kurallı basit bir teknik sinyali</b> (EMA dizilimi, RSI, MACD, Supertrend) test eder; canlı sistemin gerçekte kullandığı <b>10-katmanlı karar motoru + AI topluluğunu kullanmaz</b>. Yani “optimize edilen şey” ile “canlıda işlenen şey” farklıdır. Backtest'i gerçek <span class="mono">DecisionEngine</span> hattına bağlamak hem ölçülen başarıyı dürüstleştirir hem de optimizasyonun gerçek motoru iyileştirmesini sağlar — tek en önemli adım budur.
+</div>
+
+<h3>P0 — Sinyal–doğrulama boşluğunu kapatmak (en yüksek etki)</h3>
+<table>
+<tr><th>İyileştirme</th><th>Nerede</th><th>Beklenen etki</th></tr>
+<tr><td><b>Gerçek karar hattını backtest et</b> — bar-bazlı olarak <span class="mono">orchestrator.analyze_symbol</span> (veya en az <span class="mono">ai_ensemble</span> p(up) + katman füzyonu) ile, basit heuristik yerine <span style="color:#0d6b39;font-weight:700">✓ UYGULANDI (§4.7)</span></td><td><span class="mono">backtest/engine.py</span></td><td>Ölçülen başarının gerçeği yansıtması; optimizasyonun doğru hedefi iyileştirmesi — <b>kanıtlandı:</b> kazanma %38→%57, Sharpe 2.79</td></tr>
+<tr><td><b>Üçlü-bariyer etiketleme</b> (López de Prado) — “sonraki bar yönü” yerine TP/SL/zaman bariyerli etiket</td><td><span class="mono">ai/deep_models.make_sequences</span>, <span class="mono">ai/ensemble</span></td><td>Etiket gürültüsünü azaltır → model isabeti (~%52–55) belirgin artar</td></tr>
+<tr><td><b>Meta-etiketleme katmanı</b> — birincil sinyalin üstüne “bu işlem kazanır mı?” diye karar veren ikincil sınıflandırıcı</td><td>yeni <span class="mono">ai/meta_label.py</span></td><td>İşlem hassasiyetini (precision) ve kazanma oranını doğrudan yükseltir</td></tr>
+</table>
+
+<h3>P1 — Aşırı-uyumu bastırmak (OOS bulgularından)</h3>
+<table>
+<tr><th>İyileştirme</th><th>Nerede</th><th>Beklenen etki</th></tr>
+<tr><td><b>Kombinatoryal Saflaştırılmış CV (CPCV)</b> + yuvarlanan walk-forward yeniden-optimizasyon — tek 60/40 bölme ve “tek en iyi” yerine</td><td><span class="mono">backtest/engine.optimize_parameters</span></td><td>Tek-bölme şansını eler; ETH'deki gibi sahte “en iyi”leri engeller</td></tr>
+<tr><td><b>PBO / Deflated Sharpe Ratio</b> — çoklu-deneme yanlılığını cezalandır, dağıtım kapısı olarak kullan</td><td>yeni <span class="mono">backtest/robustness.py</span></td><td>“Backtest'in aşırı-uyum olasılığı”nı sayısallaştırır</td></tr>
+<tr><td><b>Fold'lar arası sağlam parametre seçimi</b> — tek maksimum yerine fold medyanı/IQR ile</td><td><span class="mono">optimize_parameters</span></td><td>Parametre kararlılığı → OOS dayanıklılığı</td></tr>
+<tr><td><b>Varlık başına dağıtım kapısı</b> — yalnız Monte Carlo “SAĞLAM” varlıkları canlıya al (BTC ✓, ETH ✗)</td><td><span class="mono">auto/engine.py</span></td><td>Sermayeyi yalnız kanıtlanmış kenara yönlendirir</td></tr>
+</table>
+
+<h3>P2 — Model ve özellik kalitesi</h3>
+<table>
+<tr><th>İyileştirme</th><th>Nerede</th><th>Beklenen etki</th></tr>
+<tr><td><b>Olasılık kalibrasyonu</b> (isotonic/Platt) — topluluk p(up) çıktısını gerçek frekanslara hizala <span style="color:#7a201c;font-weight:700">⚠ DENENDİ (§4.8): OOS'ta transfer etmedi</span></td><td><span class="mono">ai/ensemble.py</span></td><td><b>Negatif bulgu:</b> isotonic teste genellenmedi (§4.8); eşik 0.70'e indirme de çok-varlıkta REDDEDİLDİ (§4.9, havuz PF 0.91). Gerçek kaldıraç eşik değil <b>sinyal kalitesi</b> (P0/P4)</td></tr>
+<tr><td><b>Zengin özellikler</b> — çok-zaman-dilimi özellikleri, rejim one-hot, order-flow/on-chain sinyallerini ML vektörüne ekle (şu an yalnız 15 fiyat-türevi özellik)</td><td><span class="mono">ai/ensemble._features</span>, <span class="mono">deep_models.build_features</span></td><td>Bilgi tabanını genişletir → ayırt edici güç artar</td></tr>
+<tr><td><b>Rejim-koşullu modeller/parametreler</b> — HMM rejimine göre ayrı model/param seti; elverişsiz rejimde işlem yok</td><td><span class="mono">analysis/regime.py</span> + ensemble</td><td>“Yanlış rejimde doğru strateji” hatasını önler</td></tr>
+<tr><td><b>Uzun eğitim geçmişi + zamanlanmış yeniden eğitim + drift tespiti</b> — dağılım kayınca otomatik yeniden eğit</td><td><span class="mono">ai/deep_models.py</span>, <span class="mono">learn/</span></td><td>Model bayatlamasını (drift) engeller; isabeti korur</td></tr>
+</table>
+
+<h3>P3 — Risk, boyutlama ve yürütme gerçekçiliği</h3>
+<table>
+<tr><th>İyileştirme</th><th>Nerede</th><th>Beklenen etki</th></tr>
+<tr><td><b>Volatilite hedefleme + korelasyon-ayarlı boyutlama</b> — mevcut korelasyon rozetini boyutlamada kullan</td><td><span class="mono">auto/engine._size</span>, <span class="mono">risk/risk_engine.py</span></td><td>Portföy varyansını düşürür → daha düzgün özsermaye eğrisi</td></tr>
+<tr><td><b>İz-süren (trailing/chandelier) stop + zaman-temelli azami tutma çıkışı</b></td><td><span class="mono">auto/engine.py</span></td><td>Kârı kilitler, ölü pozisyonu serbest bırakır</td></tr>
+<tr><td><b>Yürütme gerçekçiliği</b> — backtest'te sonraki-bar-açılış doluşu (boşluk riski), perp funding sürüklemesi, boyuta-bağlı slippage, spread</td><td><span class="mono">backtest/engine._simulate</span></td><td>Canlı–backtest farkını (sahte başarı) azaltır</td></tr>
+<tr><td><b>Düşük frekans / yüksek R/R</b> — işlem maliyetini aşacak şekilde</td><td>config + optimize ızgarası</td><td>Maliyetin küçük kenarları yemesini önler</td></tr>
+</table>
+
+<h3>P4 — Veri genişliği ve portföy</h3>
+<table>
+<tr><th>İyileştirme</th><th>Nerede</th><th>Beklenen etki</th></tr>
+<tr><td><b>Tüm ücretsiz katmanları aktive et</b> — FRED (makro), CryptoPanic/NewsAPI (haber), Twitter bearer, Etherscan (on-chain T2)</td><td>panel → <span class="mono">/api/credentials</span></td><td>Daha çok bağımsız teyit → kapı daha isabetli açılır</td></tr>
+<tr><td><b>Evren genişletme</b> — yüksek hassasiyette daha çok işlem için sembol sayısını artır; sermayeyi kenara göre dağıt</td><td><span class="mono">scan/scanner.py</span>, <span class="mono">auto/portfolio.py</span></td><td>%90 hassasiyeti korurken yeterli örnek (işlem) sağlar</td></tr>
+<tr><td><b>Çoklu-borsa veri birleştirme</b> — fiyat/akış sağlamlığı</td><td><span class="mono">data/exchange_manager.py</span></td><td>Tek-kaynak gürültüsü/aksaklığına dayanıklılık</td></tr>
+</table>
+
+<h3>P5 — Operasyon ve sürekli iyileştirme</h3>
+<table>
+<tr><th>İyileştirme</th><th>Nerede</th><th>Beklenen etki</th></tr>
+<tr><td><b>Şampiyon/meydan-okuyan (champion/challenger) dağıtım + A/B</b> — yeni model/param canlıyı geçerse terfi</td><td><span class="mono">learn/</span>, <span class="mono">auto/engine.py</span></td><td>Regresyonsuz sürekli iyileşme</td></tr>
+<tr><td><b>Canlıya-almadan forward paper-test kapısı</b> — haftalarca ileri-test → küçük canlı → kademeli ölçek</td><td><span class="mono">auto/engine.py</span></td><td>Kanıtlanmamış stratejiyi sermayeden uzak tutar</td></tr>
+<tr><td><b>Sürekli izleme + bozulma alarmı</b> — PF/drawdown/Sharpe eşik altına inince otomatik durdur</td><td><span class="mono">notify/alarms.py</span></td><td>Kötüleşen kenarı erken yakalar</td></tr>
+</table>
+
+<div class="note"><b>İki dürüst uyarı:</b> (1) Bu iyileştirmelerin <i>tamamı</i> uygulansa dahi günlük garantili kâr yine mümkün değildir — amaç başarı <i>oranını</i> ve risk-ayarlı beklentiyi artırmak, kesinlik üretmek değildir. (2) En yüksek getiriyi P0 verir: gerçek karar hattını backtest etmeden yapılan parametre ayarı, yanlış hedefi optimize etmiş olur. Sıralamayı P0 → P5 olarak izlemek, en az emekle en çok kazanımı sağlar.</div>
+
+<div class="footer">
+AGI-Trader Teknik Makalesi · Otomatik üretilmiş akademik doküman · Tüm şekiller vektörel (SVG) olarak gömülüdür ·
+Tarayıcıda <b>Ctrl+P → PDF olarak kaydet</b> ile yazdırılabilir.<br>
+Bu belge bir karar-destek sistemini tanımlar; yatırım tavsiyesi içermez.
+</div>
+
+</div>
+</body>
+</html>

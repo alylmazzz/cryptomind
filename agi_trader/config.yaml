@@ -1,0 +1,87 @@
+# AGI Trader konfigürasyonu (opsiyonel — PyYAML kuruluysa okunur).
+# Bu dosyadaki her alan koddaki güvenli varsayılanların üzerine yazılır.
+
+exchanges: [binance, bybit, okx, kraken]
+# KALİBRE ALLOWLIST (calibrate.py): walk-forward/aylık robustluk testini geçen pariteler.
+# ADA/BNB/XRP elendi (hiçbir ADX eşiğinde sağlam değil). Yeniden kalibrasyon: python calibrate.py
+symbols: [BTC/USDT, ETH/USDT, SOL/USDT, DOGE/USDT, AVAX/USDT]
+timeframes: [15m, 1h, 4h, 1d, 1w, 1M]
+primary_timeframe: 4h
+ohlcv_limit: 400
+
+# auto = ccxt varsa canlı, yoksa sentetik | live | synthetic
+data_source: auto
+
+decision:
+  # KONSENSÜS KAPISI — tek-sayı %90 kapısı ulaşılamazdı (0 işlem).
+  # "Her şey aynı sinyali gösteriyorsa gir": katmanların ağırlıklı %70'i hizalı.
+  min_confidence: 0.74          # seçici konsensüs (backtest: seçicilik kârı artırıyor)
+  min_risk_reward: 0.8          # hibritte scalp(rr~1.0) ve atr(rr~1.5) ikisi de geçsin
+  consensus_min_agreement: 0.82   # seçici: backtest'te yüksek seçicilik kazandırıyor
+  consensus_min_layers: 3
+  news_veto: true
+  news_veto_min_conf: 0.45
+  trend_gate_min_adx: 20          # global varsayılan (parite-bazlı yoksa)
+  # Parite-bazlı trend kapısı (calibrate.py çıktısı). 999 = pariteyi hiç işleme.
+  # 0 = kapı kapalı (her ADX'te işle). Diğer = asgari ADX.
+  pair_trend_gate:
+    BTC/USDT: 20
+    ETH/USDT: 0
+    SOL/USDT: 20
+    DOGE/USDT: 20
+    AVAX/USDT: 28
+    ADA/USDT: 999
+    BNB/USDT: 999
+    XRP/USDT: 999
+  layer_weights:
+    technical: 0.18
+    pattern: 0.10
+    trendline: 0.12
+    smc: 0.09
+    multi_timeframe: 0.12
+    ai_ensemble: 0.13
+    sentiment: 0.08
+    fear_greed: 0.04
+    news: 0.05
+    onchain: 0.06
+    macro: 0.03
+
+risk:
+  portfolio_value: 10000
+  max_portfolio_risk: 0.02
+  max_position_risk: 0.01
+  max_drawdown: 0.20
+  kelly_fraction_cap: 0.20
+  atr_stop_mult: 2.5
+  tp_r_multiples: [1.5, 2.5, 4.0]   # trend modunda: kazananı koştur (1.5/2.5/4R)
+  # HİBRİT: güçlü trend (ADX>=25) → ATR-R; zayıf/range → scalp (geniş %1)
+  tp_mode: hybrid
+  hybrid_adx_trend: 25
+  scalp_tp_pct: [0.01, 0.02, 0.03]
+  scalp_sl_pct: 0.01
+  # FAZ4 — gerçekçi yürütme maliyeti
+  fee_taker: 0.0004
+  slippage_base: 0.00015
+  slippage_vol_k: 0.03
+  # FAZ3 — risk-temelli pozisyon boyutlama
+  sizing_mode: fixed_fraction
+  risk_per_trade: 0.01
+  max_leverage: 1.0
+  dd_risk_scaling: true
+  loss_cooldown_n: 3
+  # Trend kitabı — portföy hedef-vol kaldıraç (OOS: CAGR %11.8→%21, Sharpe 1.33→1.36)
+  trend_target_vol: 0.15
+  trend_max_lev: 2.5
+
+execution:
+  mode: paper                 # GÜVENLİK: varsayılan paper
+  allow_live: false           # canlı için mode=live VE allow_live=true gerekir
+  max_open_positions: 5
+  kill_switch_drawdown: 0.15
+
+sentiment:
+  enabled: true
+  min_impact_for_signal: 70.0
+
+output_dir: runs
+log_level: INFO

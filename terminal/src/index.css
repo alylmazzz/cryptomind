@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #0A0E1A; --bg2: #0F1425; --panel: #131A2E;
+  --border: #1E2A45; --neon: #00FF88; --danger: #FF3B5C;
+  --warn: #FFB627; --info: #0099FF; --muted: #6B7394;
+  --text: #E2E8F0; --text2: #8892B0; --surface: #1A2240;
+  --accent: #7C3AED;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { min-height: 100%; background: var(--bg); color: var(--text); font: 12px/1.5 'Inter', system-ui, sans-serif; }
+body { overflow-x: hidden; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+@keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+.anim-pulse { animation: pulse 1.5s infinite; }
+.mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-variant-numeric: tabular-nums; }
+
+/* ── düzen: masaüstünde 3 sütun, dar ekranda tek sütun ────────────────── */
+.cm-shell { display: flex; flex-direction: column; min-height: 100vh; background: var(--bg); }
+.cm-grid {
+  display: grid; gap: 1px; background: var(--border); flex: 1;
+  grid-template-columns: 250px minmax(0, 1fr) 390px;
+}
+.cm-col { background: var(--bg); min-width: 0; }
+.cm-wide { grid-column: 1 / -1; background: var(--bg); }
+@media (max-width: 1180px) {
+  .cm-grid { grid-template-columns: minmax(0, 1fr); }
+}
+.cm-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+.cm-title { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 1px; }
+.cm-btn { font-size: 10px; padding: 3px 9px; border-radius: 4px; font-weight: 700; border: none; cursor: pointer; }
+.cm-strip { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0; }
+.cm-strip::-webkit-scrollbar { height: 4px; }
+
+/* ── otopilot bölümü: dar ekranda tek sütun ──────────────────────────── */
+@media (max-width: 900px) {
+  .cm-trading-grid, .cm-trading-grid3 { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* ── üst sıra: sol içerik + sağda yapışkan canlı işlem günlüğü ───────── */
+.cm-toprow { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 1px; background: var(--border); }
+.cm-toplog { background: var(--bg); min-width: 0; }
+.cm-toplog > .cm-tradelog { position: sticky; top: 0; max-height: 100vh; overflow-y: auto; }
+@media (max-width: 1180px) {
+  .cm-toprow { grid-template-columns: minmax(0, 1fr); }
+  .cm-toplog { order: -1; }                 /* dar ekranda günlük EN ÜSTTE */
+  .cm-toplog > .cm-tradelog { position: static; max-height: none; }
+}

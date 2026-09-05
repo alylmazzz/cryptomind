@@ -1,0 +1,39 @@
+# --- Çekirdek (zorunlu) ---
+numpy>=1.24
+pandas>=2.0
+
+# --- Canlı veri + gerçek on-chain/whale/funding/OI (önerilir) ---
+ccxt>=4.5
+requests>=2.30
+
+# --- Gerçek derin öğrenme: Transformer + LSTM + RL (önerilir) ---
+torch>=2.2
+
+# --- Klasik ML topluluğu (önerilir) ---
+scikit-learn>=1.3
+
+# --- Gradient boosting (önerilir — ensemble doğruluğunu artırır) ---
+xgboost>=2.0
+lightgbm>=4.0
+
+# --- Hisse/endeks/forex/emtia verisi (BIST, ABD, küresel — normal borsalar) ---
+yfinance>=0.2
+
+# --- HMM piyasa rejimi (dinamik pozisyon boyutlama) ---
+hmmlearn>=0.3
+
+# --- RL v2: PPO/A2C sıralı işlem ajanı (multi-asset) ---
+stable-baselines3>=2.0
+gymnasium>=1.0
+
+# --- Web dashboard (önerilir) ---
+fastapi>=0.110
+uvicorn>=0.27
+
+# --- config.yaml desteği (opsiyonel) ---
+PyYAML>=6.0
+
+# --- Canlı Twitter/X + finansal sentiment modeli (opsiyonel) ---
+# Canlı tweet çekimi Twitter API anahtarı gerektirir (ücretli).
+tweepy>=4.14
+transformers>=4.40

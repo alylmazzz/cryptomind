@@ -1,0 +1,43 @@
+# ─── SIRLAR — asla depoya girmez ────────────────────────────────────────────
+# agi_trader/.env 7 GERÇEK API anahtarı içerir (CoinMarketCap, CoinGecko, FRED,
+# Etherscan, BSCScan, LunarCrush, NewsAPI). Şablonu .env.example'dadır.
+.env
+.env.local
+*.key
+*.pem
+*.db
+vault*
+*credential*
+*secret*
+
+# ─── Çalışma zamanı durumu ve ölçüm çıktıları ──────────────────────────────
+# runs/ ~494 MB: paper portföy durumu, işlem defteri, sinyal kaydı (signals.jsonl
+# tek başına 109 MB), fiyat önbelleği, günlük raporlar. Kod değil, VERİ.
+runs/
+kl/
+*.log
+
+# ─── Bağımlılıklar / derleme çıktısı ───────────────────────────────────────
+node_modules/
+dist/
+.next/
+venv/
+venv_*/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+
+# ─── Yedekler ──────────────────────────────────────────────────────────────
+_bak_*/
+*.bak
+*.bak-*
+*.pre-expo
+
+# ─── IDE / işletim sistemi ─────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,144 @@
+Profesyonel Prompt Mühendisliği - Geliştirilmiş & Detaylandırılmış Prompt
+🎯 MASTER PROMPT (Türkçe - Tam Kapsamlı)
+"Gerçek Zamanlı Çoklu Piyasa Analiz & Sinyal Üretim Platformu (Multi-Asset Intelligence Terminal)"
+
+📌 PLATFORM TANIMI & ANA HEDEF
+Tüm küresel finansal piyasaları (geleneksel borsalar, kripto borsaları, emtia, forex, tahvil piyasaları) eş zamanlı izleyen; yapay zeka destekli al/sat sinyali üretimi, eşik analizi, makroekonomik olay öngörüsü ve zamanlama motoru içeren; kurumsal düzeyde bir Web Tabanlı Trading Intelligence Terminal geliştir.
+
+🖥️ ARAYÜZ MİMARİSİ (Layout Architecture)
+Ana ekranı 4 panele böl:
+
+text
+
+┌─────────────────────────────────────────────────────────────────┐
+│  HEADER: Logo | Piyasa Saati (NYSE/LSE/TSX/BINANCE) | Alarm Bar │
+├──────────────────┬──────────────────────┬───────────────────────┤
+│  SOL PANEL       │   MERKEZ PANEL       │   SAĞ PANEL           │
+│  (Watchlist &    │   (Grafik &          │   (Sinyal Kontrol     │
+│   Haber Akışı)   │    Teknik Analiz)    │    Merkezi)           │
+├──────────────────┴──────────────────────┴───────────────────────┤
+│  ALT PANEL: Makro Takvim | Korelasyon Matrisi | Haber Sentiment │
+└─────────────────────────────────────────────────────────────────┘
+📊 SAĞ ÜST PANEL — "SİNYAL KONTROL MERKEZİ" (Detaylı)
+Her aktif parite için aşağıdaki eşik kartı görüntülensin:
+
+text
+
+┌──────────────────────────────────────────────────┐
+│  🟢 BTC/USDT  ●CANLI     Borsa: Binance          │
+│──────────────────────────────────────────────────│
+│  GÜNCEL FİYAT:     $ 67,420.50                   │
+│  SİNYAL:          🔴 KESİN SAT  (Güven: %91)     │
+│──────────────────────────────────────────────────│
+│  📈 AL EŞİĞİ (MIN):      $ 64,200.00             │
+│  📈 AL EŞİĞİ (MAX):      $ 65,800.00             │
+│  📉 SAT EŞİĞİ (MIN):     $ 67,000.00             │
+│  📉 SAT EŞİĞİ (MAX):     $ 69,500.00             │
+│──────────────────────────────────────────────────│
+│  🎯 HEDEF FİYAT (TP1):   $ 72,000.00             │
+│  🎯 HEDEF FİYAT (TP2):   $ 75,500.00             │
+│  🛑 ZARAR DURDUR (SL):   $ 63,100.00             │
+│──────────────────────────────────────────────────│
+│  ⚖️  RİSK/ÖDÜL ORANI:    1 : 3.2                 │
+│  📊 POZİSYON BÜYÜKLÜĞÜ:  %4.2 (Kelly Kriteri)   │
+│  ⏱️  TAHMİNİ SÜRE:        14–22 Saat             │
+│  🔥 MOMENTUM SKORU:      78/100 (Güçlü)          │
+│──────────────────────────────────────────────────│
+│  [DETAY] [ALARM EKLE] [GEÇMİŞ] [PAYLAŞ]         │
+└──────────────────────────────────────────────────┘
+Görsel Eklentiler (Sağ Panel):
+
+Her kart için mini spark-line grafik (son 24 saatlik fiyat hareketi)
+Renk kodlu eşik çubuğu (termometre görseli): Fiyatın al/sat bölgesine yakınlığını göster
+Sinyal gücü göstergesi (dairesel progress bar): 0–100 arası
+Korelasyon rozeti: "Bu parite şu an EUR/USD ile %87 korelasyon içinde" bildirimi
+Volatilite ısı haritası ikonu: Düşük🟦 / Orta🟨 / Yüksek🟥 / Ekstrem⬛
+🌍 EŞ ZAMANLI PİYASA TAKİP SİSTEMİ
+Geleneksel Borsalar:
+
+NYSE, NASDAQ, S&P 500, Dow Jones, Russell 2000
+Borsa İstanbul (BIST 100, BIST 30)
+London Stock Exchange (FTSE 100)
+Frankfurt (DAX 40), Paris (CAC 40), Tokyo (Nikkei 225)
+Hong Kong (Hang Seng), Shanghai (SSE Composite)
+Bombay (SENSEX), São Paulo (Bovespa)
+Euronext, Toronto (TSX)
+Kripto Borsaları:
+
+Binance, Coinbase Pro, Kraken, OKX, Bybit
+KuCoin, Gate.io, Huobi, Bitfinex, dYdX
+DEX'ler: Uniswap v3, dYdX, GMX (on-chain veri)
+Forex & Emtia:
+
+Majör pariteler: EUR/USD, GBP/USD, USD/JPY, USD/CHF
+Minör & Ekzotik: USD/TRY, EUR/TRY, GBP/JPY
+Emtia: Altın (XAU/USD), Gümüş (XAG/USD), Ham Petrol (WTI & Brent), Doğalgaz
+Tahvil: ABD 10Y, 2Y yield, Alman Bund, Türkiye 10Y
+🤖 YAPAY ZEKA SİNYAL MOTORU
+Teknik Analiz Katmanı:
+
+RSI (14), MACD (12/26/9), Bollinger Bands, ATR, ADX
+Ichimoku Bulutu, Fibonacci Retracement seviyeleri
+Volume Profile, VWAP, OBV (On-Balance Volume)
+Heikin Ashi + Supertrend kombinasyonu
+Destek/Direnç seviyeleri otomatik tespiti (Pivot Points)
+Makine Öğrenmesi Katmanı:
+
+LSTM tabanlı fiyat tahmini (sonraki 4H / 1D / 1W)
+Sentiment analizi (Twitter/X, Reddit, Telegram kanal verileri)
+Order book derinlik analizi (Bid/Ask duvarları)
+Whale tracker: +$500K üzeri işlemleri tespit et
+Sinyal Sınıflandırması:
+
+text
+
+🟢 KESİN AL    → Güven > %85, tüm indikatörler hizalı
+🟡 ZAYIF AL    → Güven %60–85, kısmi hizalama
+⚪ NÖTR        → Güven %40–60, bekleme sinyali
+🟠 ZAYIF SAT   → Güven %60–85, kısmen negatif
+🔴 KESİN SAT   → Güven > %85, tüm indikatörler negatif
+⚡ ACİL ÇIKIŞ  → Flash crash / kara kuğu tespit
+🔮 MAKRO OLAY ÖNGÖRÜ & ZAMANLAMA MOTORU
+İzlenecek Makroekonomik Olaylar:
+
+Olay Kategorisi	Örnek Olaylar	Etki Skoru
+Merkez Bankası	Fed, ECB, TCMB faiz kararları	⬛ KRİTİK
+Ekonomik Veri	CPI, NFP, GDP, PPI, PCE açıklamaları	🟥 YÜKSEK
+Jeopolitik	Savaş, yaptırım, seçim sonuçları	🟥 YÜKSEK
+Şirket Haberleri	Büyük şirket iflasları, birleşme/devralmalar	🟨 ORTA
+Kripto Spesifik	Bitcoin halving, ETF onayı, exchange hack	⬛ KRİTİK
+Likidite Olayları	Ayın sonu rebalancing, opsiyon expiryları	🟨 ORTA
+Kara Kuğu	Anlık %5+ fiyat düşüşü, sistemik risk	🚨 ACİL
+Zamanlama Motoru Özellikleri:
+
+T-minus Sayaçları: "Fed açıklamasına 2 saat 34 dakika kaldı — BTC geçmiş 8 Fed toplantısında %3.2 ortalama volatilite yaşadı"
+Olası Senaryo Ağacı: Her olay için Bull / Base / Bear senaryosu ve olasılık yüzdesi
+Korelasyon Zinciri: "Fed faiz artışı → DXY güçlenir → Altın düşer → Risk iştahı azalır → BTC 4–6 saat içinde %2-4 gerileyebilir"
+Geçmiş Örüntü Eşleştirme: "Bu yapı Eylül 2022 ile %78 benzerlik gösteriyor"
+🧭 SOL PANEL — HABER & DUYGU ANALİZİ
+Gerçek zamanlı haber akışı: Reuters, Bloomberg, CoinDesk, CoinTelegraph
+Sentiment skoru (her haber için): 😱 Panik | 😟 Negatif | 😐 Nötr | 🙂 Pozitif | 🚀 Öforik
+Haber-fiyat korelasyon göstergesi: Hangi haberin hangi paritede harekete yol açtığını göster
+Social Media Hype Skoru: Twitter trend volume + Reddit karma analizi
+📉 MERKEZ PANEL — GELİŞMİŞ GRAFİK
+TradingView tarzı interaktif grafik: Çoklu zaman dilimi (1m, 5m, 15m, 1H, 4H, 1D, 1W)
+Grafik üzerinde al/sat sinyal oklarını otomatik çiz
+Eşik bölgelerini grafik üzerinde renkli bantlar ile göster (yeşil=al zonu, kırmızı=sat zonu)
+Çoklu parite karşılaştırma modu: 2–4 varlığı aynı grafik üzerinde overlay olarak göster
+⚙️ TEKNİK & PERFORMANS GEREKSİNİMLERİ
+React + Vite + TailwindCSS frontend
+WebSocket bağlantıları ile gerçek zamanlı veri akışı (sub-100ms gecikme)
+IndexedDB ile yerel veri önbelleği (offline mod desteği)
+PWA desteği: Mobil cihazlara yüklenebilir, bildirim gönderebilir
+Dark/Light tema + Renk körlüğü erişilebilirlik modu
+Çoklu dil: Türkçe, İngilizce, Almanca, Japonca
+Güvenlik: API key şifreleme, rate limiting, 2FA desteği
+🎨 GÖRSEL TASARIM DİLİ
+Tema: Kurumsal Dark (Bloomberg Terminal estetiği)
+Renk Paleti: Koyu arka plan #0A0E1A + Neon yeşil sinyaller + Kırmızı uyarılar
+Font: JetBrains Mono (sayılar) + Inter (UI metinleri)
+Animasyonlar: Smooth fiyat tick animasyonları, pulse efektli aktif sinyaller
+Responsive: Tam masaüstü optimizasyonu + tablet desteği
+
+ en yapılması gereken al satları belirliyecek bütün paritelerde alım yada satım eşiklerini net olarak gösteren arayüzün sağ üst panelinde yazılı olarak eşik al sat maks min değerlerinin sayısal olarak gösterildiği her parite için
+görsel eklemeler yap arayüzün sağ taraafında ,bütün normal borsa ve kripto borsalarının verilirini eş zmaanlı izlesin birbirini etkileyecek büyük olayları öngörsün ve zamanlamasını belirlesin, sen profesyonel  ekonimst , borsacı analiz uzmanı , piyasa öngörücüsü birisin ve işinde profesyonel ve başarılısın.

@@ -86,9 +86,30 @@ aynı 5 paritede, aynı maliyetle** ölçüldü (Binance, 5 × 86.400 bar).
 | Supertrend (üçlü) | 5912 | %20,6 | — | — | — | REDDEDİLDİ |
 | ClucMay72018 | 0 | %0,00 | — | — | — | REDDEDİLDİ |
 
-**Hiçbiri kenar kanıtlayamadı.** Üçü ateşleme kapısında elendi — kenar ölçülmeden önce:
-ADXMomentum ve Supertrend piyasanın beşte birini "giriş" sayacak kadar seçicisiz; ClucMay
-60 günde bile hiç ateşlemedi. BbandRsi ölçüldü ve güvenilir biçimde negatif çıktı.
+Aynı dört strateji **küçük/oynak paritelerde** de ölçüldü (BONK, ORDI, PYTH, ARB, PEPE —
+60 günlük geçmişi tam 16 aday arasından oynaklığı en yüksek 5; grup ortalaması %3,88 günlük
+oynaklık ve saatlik $176K hacim, yani büyüklere göre 1,94× oynak ama 61× ince):
+
+| Kurulum | Ateşleme | Oran | Etkin n | Ort. net | t | Verdikt |
+|---|---:|---:|---:|---:|---:|---|
+| ADXMomentum | 3615 | %12,6 | 1495 | −%0,148 | −13,08 | GÖLGE |
+| BbandRsi | 218 | %0,76 | 192 | −%0,067 | −2,65 | GÖLGE |
+| Supertrend (üçlü) | 4396 | %15,3 | — | — | — | REDDEDİLDİ |
+| ClucMay72018 | 6 | %0,007 | 6 | −%2,52 | −2,51 | ÖLÇÜLEMEDİ (n<30) |
+
+**Hiçbiri, hiçbir grupta kenar kanıtlayamadı.** Oynak paritelerde iki şey değişti:
+ADXMomentum'un ateşleme oranı %17,7 → %12,6 ile kapıyı geçti ve ölçülebildi — altından kenar
+değil net zarar çıktı; BbandRsi'nin zararı yarılandı (−%0,138 → −%0,067) ama güven aralığının
+üst ucu hâlâ negatif. Maliyet varsayımı (%0,14) bu ince defterler için iyimser olduğundan
+**negatif sonuçlar sağlam**; pozitif bir sonuç çıksaydı gerçekçi maliyetle yeniden ölçülmesi
+gerekirdi.
+
+**ClucMay: sıfır ateşlemenin sebebi strateji değil, portun kendisiydi.** İlk teşhis "kurulum
+pratikte ölü" idi ve YANLIŞTI. Tam tarama gösterdi ki ham koşul 60 günde 10 paritede 28 kez
+ateşliyor; ama stopu bandın altına koymuştuk ve fiyat bandın %1,5 altına indiğinde o seviye
+girişin ÜSTÜNDE kalıyor — 28'inin 28'i bu yüzden kurulamıyordu. Stop oransal hâle getirildi.
+Sonrasında bile n = 6–10 ile kapının n ≥ 30 eşiğinin altında: **ölçülemedi**. İki farklı tarama
+zıt işaret verdi (tam tarama +%0,32 / adım-5 −%2,52) — bu, "n yetersiz"in ta kendisi.
 
 Sonuçlar **iki bağımsız pencerede tutarlı**: aynı ölçüm 7 gün/MEXC'te de yapıldı —
 ADXMomentum %17,5 → %17,7 · Supertrend %20,4 → %20,6 · ClucMay 0 → 0 · BbandRsi ortalama

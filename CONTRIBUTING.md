@@ -103,6 +103,14 @@ pencerenin **%98'ini paylaşır** — yani aynı ticaret onlarca kez sayılır, 
 hesaplanır: bir işlem, aynı paritede bir öncekinin ufku bittikten sonra sayılır. Çıktıda
 `nominal → ETKİN (şişme ×N)` satırı bunu gösterir.
 
+**NADİR KURULUMLAR — doğrulayıcının sınırı:** doğrulayıcı her `--step` barda bir pencere
+açar. Kurulumunuz ~10.000 barda bir ateşliyorsa adım 15'te beklenen yakalama **1'in altındadır**
+ve sonuç "hiç ateşlemedi" görünür. Böyle bir kurulumu ölçmek için `--step 1` gerekir (yavaştır)
+ya da ham koşulu doğrudan tarayan bir betik yazın. Ayrıca **"hiç ateşlemedi" ile "ateşledi ama
+kurulum tutarsız" farklıdır**: ikincisi (stop ≥ giriş gibi) kuralın değil KODUNUZUN kusurudur ve
+doğrulayıcı bunu ayrı sayar. Depodaki ClucMay portu tam olarak bu tuzağa düştü — stop girişin
+üstünde kalıyordu, 28 ateşlemenin 28'i düşüyordu ve sonuç "strateji ölü" sanılmıştı.
+
 **Veri penceresi:** MEXC 1 dakikalık geçmişi ~30 günle sınırlıdır (35 günde boş döner).
 Daha uzun pencere için `--venue binance` (ya da kucoin/bybit) kullanın:
 

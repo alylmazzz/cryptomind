@@ -148,3 +148,25 @@ MEASURED = {
     "fire_rate_pct": 20.628,
     "verdict": "REJECTED",
 }
+
+# ─────────────────────────────────────────────────────────────────────────
+# KÜÇÜK/OYNAK PARİTELER — binance · 60 gün · BONK, ORDI, PYTH, ARB, PEPE
+# ─────────────────────────────────────────────────────────────────────────
+# Seçim kuralı: 60 günlük geçmişi tam 16 aday arasından günlük oynaklığı en
+# yüksek 5 parite. Büyük grup ort. oynaklık %2,00 / saatlik hacim $10,8M;
+# küçük grup %3,88 / $176K — yani 1,94× daha oynak ama 61× daha İNCE.
+# Maliyet varsayımı (%0,14) bu defterler için İYİMSER: negatif sonuçlar bu
+# yüzden sağlam, pozitif bir sonuç ise gerçekçi maliyetle yeniden ölçülmeliydi.
+#
+#   pencere 28660 · ateşleme 4396 · oran %15.338
+#
+# VERDİKT: REDDEDİLDİ — ateşleme oranı %15.3 > %15
+#
+# Ateşleme %20,6 → %15,3'e indi ama kapı eşiği %15 — kıl payı yine elendi.
+# Üç Supertrend'in aynı anda yukarı olması oynak paritelerde de olağan durum.
+MEASURED_SMALL_CAPS = {
+    "window": "60 gün · binance · 1 dk · küçük/oynak pariteler",
+    "n_windows": 28660, "n_fires": 4396, "n_effective": None,
+    "fire_rate_pct": 15.338,
+    "verdict": "REJECTED",
+}

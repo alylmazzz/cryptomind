@@ -308,3 +308,20 @@ def test_etkin_orneklem_kronolojik_sirayi_korur():
     idx = [k["idx"] for k in _bagimsiz(kayit, 100)]
     assert idx == sorted(idx), "bağımsız küme kronolojik olmalı"
     assert idx == [100, 300, 500]
+
+
+def test_tutarsiz_kurulum_hic_ateslememekten_AYRI_raporlanir():
+    """2026-09-05 dersi: "hiç ateşlemedi" ile "ateşledi ama kurulum tutarsız" AYRI şeylerdir.
+
+    İlki kuralın nadirliğini, ikincisi KODUN kusurunu gösterir. ClucMay portunda stop
+    girişin ÜSTÜNDE kalıyordu; 60 günde 28 ateşlemenin 28'i de sessizce düşüyor ve sonuç
+    "hiç ateşlemedi" görünüyordu — yanlış teşhise götüren tam olarak bu sessiz atlamaydı."""
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import cm_verify_contribution as V
+    import inspect
+    src = inspect.getsource(V.olc)
+    assert "tutarsiz.append" in src, "tutarsız kurulum kaydedilmeli"
+    assert "tutarsiz" in inspect.getsource(V._olc_ve_karar), "verdikt tutarsızlığı görmeli"
+    # verdikt ayrımı: tutarsız varken sebep 'hiç ateşlemedi' OLMAMALI
+    karar_src = inspect.getsource(V._olc_ve_karar)
+    assert "kurulum tutarsız" in karar_src

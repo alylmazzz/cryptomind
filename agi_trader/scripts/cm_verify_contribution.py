@@ -113,6 +113,7 @@ def olc(sleeve: str, hist: Dict, p, maliyet_pct: float, ufuk_bar: int,
     meta = CB.CONTRIB[sleeve]["meta"]
     pencere_n = 0
     ateslemeler: List[Dict] = []
+    tutarsiz: List[Dict] = []
     for (sym, tf), df in hist.items():
         if tf != "1m" or df is None or len(df) < pencere + ufuk_bar + 5:
             continue
@@ -133,7 +134,16 @@ def olc(sleeve: str, hist: Dict, p, maliyet_pct: float, ufuk_bar: int,
             stop = float(t.get("stop_hint") or (giris - 1.5 * atr_abs))
             hedef = float(t.get("target_hint") or (giris + 3.0 * atr_abs))
             if not (stop < giris < hedef):
-                continue                       # tutarsız kurulum: ölçülemez
+                # SESSİZ ATLAMA YASAK: "hiç ateşlemedi" ile "ateşledi ama kurulum
+                # tutarsız" AYRI şeylerdir. İlki kuralın nadirliğini, ikincisi KODUN
+                # kusurunu gösterir. 2026-09-05'te ClucMay portu tam olarak bu yüzden
+                # "hiç ateşlemedi" göründü: 28 ateşlemenin 28'inde stop girişin
+                # ÜSTÜNDEYDİ ve hepsi burada sessizce düşüyordu.
+                tutarsiz.append({"symbol": sym, "idx": i,
+                                 "neden": ("stop ≥ giriş" if stop >= giris else
+                                           "hedef ≤ giriş" if hedef <= giris else "?"),
+                                 "giris": giris, "stop": stop, "hedef": hedef})
+                continue
             ileri = df.iloc[i:i + ufuk_bar]
             cikis, sebep = float(ileri["close"].iloc[-1]), "ZAMAN"
             for j in range(len(ileri)):
@@ -148,7 +158,7 @@ def olc(sleeve: str, hist: Dict, p, maliyet_pct: float, ufuk_bar: int,
                                 "stop_pct": (giris - stop) / giris * 100.0,
                                 "hedef_pct": (hedef / giris - 1.0) * 100.0})
     return {"pencere": pencere_n, "atesleme": len(ateslemeler), "kayitlar": ateslemeler,
-            "exit_mode": meta["exit_mode"]}
+            "tutarsiz": tutarsiz, "exit_mode": meta["exit_mode"]}
 
 
 def _bagimsiz(kayitlar: List[Dict], ufuk_bar: int) -> List[Dict]:
@@ -223,13 +233,26 @@ def _olc_ve_karar(sleeve: str, meta: Dict, hist: Dict, p_, a) -> Dict:
     ufuk_bar = max(5, int(meta["time_stop_min"]))
     r = olc(sleeve, hist, p_, a.cost_pct, ufuk_bar, adim=a.step)
     oran = r["atesleme"] / max(1, r["pencere"]) * 100.0
-    print(f"  pencere {r['pencere']} · ateşleme {r['atesleme']} · oran %{oran:.3f}")
+    print(f"  pencere {r['pencere']} · ateşleme {r['atesleme']} · oran %{oran:.3f}"
+          + (f" · TUTARSIZ {len(r['tutarsiz'])}" if r["tutarsiz"] else ""))
+    if r["tutarsiz"]:
+        nedenler: Dict[str, int] = {}
+        for x in r["tutarsiz"]:
+            nedenler[x["neden"]] = nedenler.get(x["neden"], 0) + 1
+        print(f"  ⚠ {len(r['tutarsiz'])} kurulum TUTARSIZ olduğu için ölçülemedi: {nedenler}")
+        print("    Bu kuralın nadirliği DEĞİL, kurulumun kendi stop/hedefinin kusurudur.")
 
     ortak = {"sleeve": sleeve, "pencere": r["pencere"], "atesleme": r["atesleme"],
              "atesleme_orani_pct": round(oran, 3), "gun": a.days, "venue": a.venue,
              "meta": meta, "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
 
     if r["atesleme"] == 0:
+        if r["tutarsiz"]:
+            print(f"  ✗ {len(r['tutarsiz'])} kez ateşledi ama HİÇBİRİ kurulabilir kurulum "
+                  "üretmedi — stop/hedef tutarsız. Kodu düzeltip yeniden ölçün.")
+            print(f"\nVERDİKT [{sleeve}]: REDDEDİLDİ — kurulum tutarsız (kural nadirliği değil).")
+            return {**ortak, "verdikt": "REDDEDİLDİ", "sebep": "kurulum tutarsız (stop/hedef)",
+                    "tutarsiz_n": len(r["tutarsiz"])}
         print("  ✗ HİÇ ateşlemedi — koşullar aynı anda sağlanamıyor olabilir "
               "(bu depoda ters-FVG tam olarak böyle bir mantık çelişkisi taşıyordu).")
         print(f"\nVERDİKT [{sleeve}]: REDDEDİLDİ — ölçülemeyen kurulum sisteme giremez.")

@@ -137,3 +137,31 @@ MEASURED = {
     "fire_rate_pct": 17.678,
     "verdict": "REJECTED",
 }
+
+# ─────────────────────────────────────────────────────────────────────────
+# KÜÇÜK/OYNAK PARİTELER — binance · 60 gün · BONK, ORDI, PYTH, ARB, PEPE
+# ─────────────────────────────────────────────────────────────────────────
+# Seçim kuralı: 60 günlük geçmişi tam 16 aday arasından günlük oynaklığı en
+# yüksek 5 parite. Büyük grup ort. oynaklık %2,00 / saatlik hacim $10,8M;
+# küçük grup %3,88 / $176K — yani 1,94× daha oynak ama 61× daha İNCE.
+# Maliyet varsayımı (%0,14) bu defterler için İYİMSER: negatif sonuçlar bu
+# yüzden sağlam, pozitif bir sonuç ise gerçekçi maliyetle yeniden ölçülmeliydi.
+#
+#   pencere 28680 · ateşleme 3615 · oran %12.605
+#   örneklem: nominal 3615 → ETKİN 1495
+#   ortalama net %-0.1481 · t -13.08 · CI95 [-0.1704, -0.1254] · kazanma %31.5
+#   çıkış sebepleri: {'STOP': 988, 'HEDEF': 499, 'ZAMAN': 8}
+#
+# VERDİKT: GÖLGE
+#
+# DEĞİŞEN VERDİKT: büyük paritelerde ateşleme %17,7 ile kapıda elenmişti; oynak
+# paritelerde %12,6'ya düşüp kapıyı GEÇTİ ve ölçülebildi. Yani seçicilik sorunu
+# kendiliğinden çözüldüğünde altından kenar değil, net bir zarar çıktı.
+MEASURED_SMALL_CAPS = {
+    "window": "60 gün · binance · 1 dk · küçük/oynak pariteler",
+    "n_windows": 28680, "n_fires": 3615, "n_effective": 1495,
+    "fire_rate_pct": 12.605,
+    "mean_net_pct": -0.1481, "t_stat": -13.08, "ci95": [-0.1704, -0.1254],
+    "win_rate": 0.315, "exit_reasons": {'STOP': 988, 'HEDEF': 499, 'ZAMAN': 8},
+    "verdict": "SHADOW",
+}

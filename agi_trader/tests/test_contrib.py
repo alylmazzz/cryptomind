@@ -43,14 +43,26 @@ def fire(f, p, price, atr_abs):
 
 
 @pytest.fixture
-def contrib_dizini(tmp_path, monkeypatch):
-    """Katkı paketini geçici bir dizine yönlendir; test sonrası gerçek paket geri yüklenir."""
-    monkeypatch.setattr(CB, "__path__", [str(tmp_path)])
-    onceki = {k for k in sys.modules if k.startswith(CB.__name__ + ".")}
-    yield tmp_path
-    for k in [k for k in sys.modules if k.startswith(CB.__name__ + ".") and k not in onceki]:
-        del sys.modules[k]  # geçici test modülleri gerçek paketi kirletmesin
-    CB.load(set())          # gerçek (boş) durumu geri yükle
+def contrib_dizini(tmp_path):
+    """Katkı paketini geçici bir dizine yönlendir; test sonrası GERÇEK paket geri yüklenir.
+
+    `monkeypatch` KULLANILMAZ: monkeypatch'in geri alma adımı fixture gövdesinden SONRA
+    çalışır, dolayısıyla teardown'daki `CB.load()` hâlâ geçici dizini görür ve gerçek
+    katkıları kayıt defterinden SİLERDİ. Sonuç, testlerin tek başına geçip tam pakette
+    düşmesiydi (2026-09-05'te tam olarak bu oldu). Bu yüzden `__path__` elle geri konur
+    ve kayıt defteri üretimdeki AYNI ad kümesiyle yeniden yüklenir."""
+    from agi_trader.strategies.sleeves_fast import _YERLESIK_ADLAR
+    orijinal_path = list(CB.__path__)
+    onceki_moduller = {k for k in sys.modules if k.startswith(CB.__name__ + ".")}
+    CB.__path__ = [str(tmp_path)]
+    try:
+        yield tmp_path
+    finally:
+        for k in [k for k in sys.modules
+                  if k.startswith(CB.__name__ + ".") and k not in onceki_moduller]:
+            del sys.modules[k]          # geçici test modülleri gerçek paketi kirletmesin
+        CB.__path__ = orijinal_path     # ÖNCE yol geri, SONRA yükleme
+        CB.load(_YERLESIK_ADLAR)
 
 
 def yaz(dizin: Path, ad: str, govde: str) -> None:

@@ -76,19 +76,30 @@ Reddettiren şey kanıtsızlık değil, **abartılmış iddia** ve **öznel tan�
 
 Dört açık kaynak strateji ([freqtrade/freqtrade-strategies](https://github.com/freqtrade/freqtrade-strategies),
 GPL-3.0) katkı hattından geçirildi. Kurallar kaynaktan doğrulandı, **kod kopyalanmadı** —
-yalnız kural, bu deponun kendi araçlarıyla bağımsız yazıldı. Hepsi **aynı 7 günlük pencerede,
-aynı 5 paritede, aynı maliyetle** ölçüldü.
+yalnız kural, bu deponun kendi araçlarıyla bağımsız yazıldı. Hepsi **aynı 60 günlük pencerede,
+aynı 5 paritede, aynı maliyetle** ölçüldü (Binance, 5 × 86.400 bar).
 
-| Kurulum | Ateşleme | Oran | Ort. net | t | Verdikt |
-|---|---:|---:|---:|---:|---|
-| BbandRsi | 91 | %0,95 | −%0,138 | −10,63 | **GÖLGE** |
-| ADXMomentum | 1699 | %17,5 | — | — | REDDEDİLDİ |
-| Supertrend (üçlü) | 1967 | %20,4 | — | — | REDDEDİLDİ |
-| ClucMay72018 | 0 | %0,00 | — | — | REDDEDİLDİ |
+| Kurulum | Ateşleme | Oran | Etkin n | Ort. net | t | Verdikt |
+|---|---:|---:|---:|---:|---:|---|
+| BbandRsi | 265 | %0,93 | 230 | −%0,138 | −19,71 | **GÖLGE** |
+| ADXMomentum | 5070 | %17,7 | — | — | — | REDDEDİLDİ |
+| Supertrend (üçlü) | 5912 | %20,6 | — | — | — | REDDEDİLDİ |
+| ClucMay72018 | 0 | %0,00 | — | — | — | REDDEDİLDİ |
 
 **Hiçbiri kenar kanıtlayamadı.** Üçü ateşleme kapısında elendi — kenar ölçülmeden önce:
 ADXMomentum ve Supertrend piyasanın beşte birini "giriş" sayacak kadar seçicisiz; ClucMay
-hiç ateşlemedi. BbandRsi ölçüldü ve **t = −10,63** ile güvenilir biçimde negatif çıktı.
+60 günde bile hiç ateşlemedi. BbandRsi ölçüldü ve güvenilir biçimde negatif çıktı.
+
+Sonuçlar **iki bağımsız pencerede tutarlı**: aynı ölçüm 7 gün/MEXC'te de yapıldı —
+ADXMomentum %17,5 → %17,7 · Supertrend %20,4 → %20,6 · ClucMay 0 → 0 · BbandRsi ortalama
+−%0,132 (etkin n 62, t −7,64) → −%0,138 (etkin n 230, t −19,71). Farklı borsa, 8,6 kat veri;
+iki ortalama arasındaki fark 7 günlük ölçümün güven aralığının (−%0,163 … −%0,095) içinde.
+Kenarın yokluğu örneklem gürültüsü değil.
+
+**Etkin örneklem:** doğrulayıcı her `--step` barda pencere açıp `time_stop_min` boyunca ileri
+test eder; ardışık ateşlemeler ileri pencereyi paylaşırsa aynı ticaret defalarca sayılır ve
+`|t|` şişer. İstatistik ve kapılar bu yüzden **örtüşmeyen** alt kümede hesaplanır
+(BbandRsi: nominal 265 → etkin 230).
 
 Bunlar "bu stratejiler kötü" demek değildir. Hepsi 1 saatlik ya da 5 dakikalık barlar için
 yazılmış; burada 1 dakikalık barlarda ve bu maliyet yapısında ölçüldüler. Her dosyanın
@@ -98,6 +109,7 @@ başındaki **SAPMALAR** notu farkı açıkça yazar, `MEASURED` bloğu da sonuc
 ClucMay'in sıfır ateşlemesi ayrıca ölçülerek açıklandı: ilk hipotez ("zaman dilimi değişti")
 **çürütüldü** — `close < 0,985×bb_lower` koşulu 5 dakikalık barlarda da %0,000 sıklıkta.
 Sebep ölçek: Bollinger yarım genişliği %0,14–0,52 iken koşul bandın %1,5 altını istiyor.
+"Pencere kısaydı" itirazı da 60 günle karşılandı: sonuç yine 0.
 
 Ayrıntı: [CONTRIBUTING.md](CONTRIBUTING.md) · Öneri için
 [strateji şablonu](../../issues/new?template=strateji-onerisi.yml)

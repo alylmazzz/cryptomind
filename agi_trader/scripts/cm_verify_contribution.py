@@ -143,12 +143,29 @@ def olc(sleeve: str, hist: Dict, p, maliyet_pct: float, ufuk_bar: int,
                 if hi >= hedef:
                     cikis, sebep = hedef, "HEDEF"; break
             brut = (cikis / giris - 1.0) * 100.0
-            ateslemeler.append({"symbol": sym, "net_pct": brut - maliyet_pct,
+            ateslemeler.append({"symbol": sym, "idx": i, "net_pct": brut - maliyet_pct,
                                 "brut_pct": brut, "sebep": sebep,
                                 "stop_pct": (giris - stop) / giris * 100.0,
                                 "hedef_pct": (hedef / giris - 1.0) * 100.0})
     return {"pencere": pencere_n, "atesleme": len(ateslemeler), "kayitlar": ateslemeler,
             "exit_mode": meta["exit_mode"]}
+
+
+def _bagimsiz(kayitlar: List[Dict], ufuk_bar: int) -> List[Dict]:
+    """Örtüşmeyen alt küme — ETKİN örneklem.
+
+    Doğrulayıcı her `adim` barda bir pencere açar; ateşlerse `ufuk_bar` boyunca ileri
+    test eder. adım 5 / ufuk 240 iken ardışık iki ateşleme ileri pencerenin %98'ini
+    PAYLAŞIR: aynı ticaret onlarca kez sayılır, nominal n şişer ve |t| olduğundan büyük
+    çıkar. Burada bir işlem, aynı paritede bir öncekinin ufku BİTTİKTEN sonra sayılır."""
+    out: List[Dict] = []
+    son: Dict[str, int] = {}
+    for k in sorted(kayitlar, key=lambda x: (x["symbol"], x["idx"])):
+        s_ = k["symbol"]
+        if s_ not in son or k["idx"] >= son[s_]:
+            out.append(k)
+            son[s_] = k["idx"] + ufuk_bar
+    return out
 
 
 def _istatistik(x: List[float]) -> Dict:
@@ -224,10 +241,16 @@ def _olc_ve_karar(sleeve: str, meta: Dict, hist: Dict, p_, a) -> Dict:
     print("  ✓ ateşleme oranı makul bandda (%0–15)")
 
     print(f"\n[4/4] KENAR · {sleeve} (maliyet %{a.cost_pct} düşülmüş, kendi stop/hedefiyle)")
-    net = [k["net_pct"] for k in r["kayitlar"]]
+    # ETKİN ÖRNEKLEM: örtüşen ileri pencereler aynı ticareti defalarca sayar ve |t|'yi
+    # şişirir. İstatistik ve KAPILAR örtüşmeyen alt kümede hesaplanır.
+    bagimsiz = _bagimsiz(r["kayitlar"], ufuk_bar)
+    sisme = len(r["kayitlar"]) / max(1, len(bagimsiz))
+    print(f"  örneklem: nominal {len(r['kayitlar'])} → ETKİN {len(bagimsiz)} "
+          f"(örtüşme şişmesi {sisme:.1f}×) — istatistik etkin küme üzerinden")
+    net = [k["net_pct"] for k in bagimsiz]
     st = _istatistik(net)
     sebepler: Dict[str, int] = {}
-    for k in r["kayitlar"]:
+    for k in bagimsiz:
         sebepler[k["sebep"]] = sebepler.get(k["sebep"], 0) + 1
     print(f"  n {st['n']} · ortalama net %{st['ort']} · t {st['t']} · CI95 {st['ci95']} · "
           f"kazanma %{st['kazanma'] * 100:.1f}")
@@ -235,7 +258,7 @@ def _olc_ve_karar(sleeve: str, meta: Dict, hist: Dict, p_, a) -> Dict:
     print(f"  çıkış sebepleri: {sebepler}")
 
     tutarli = bool(st["ilk_yari"] is not None and st["ilk_yari"] > 0 and st["ikinci_yari"] > 0)
-    iki_kat = _istatistik([k["brut_pct"] - 2.0 * a.cost_pct for k in r["kayitlar"]])["ort"]
+    iki_kat = _istatistik([k["brut_pct"] - 2.0 * a.cost_pct for k in bagimsiz])["ort"]
     print(f"  2× maliyette beklenti: %{iki_kat}")
     kapilar = {"beklenti_pozitif": st["ort"] > 0, "ci_alt_sinir_pozitif": st["ci95"][0] > 0,
                "iki_kat_maliyette_pozitif": iki_kat > 0, "alt_donem_tutarli": tutarli,
@@ -244,7 +267,9 @@ def _olc_ve_karar(sleeve: str, meta: Dict, hist: Dict, p_, a) -> Dict:
         print(f"    {'✓' if v else '✗'} {k}")
 
     sonuc = {**ortak, "istatistik": st, "iki_kat_maliyet_beklenti": iki_kat,
-             "kapilar": kapilar, "cikis_sebepleri": sebepler}
+             "kapilar": kapilar, "cikis_sebepleri": sebepler,
+             "nominal_n": len(r["kayitlar"]), "etkin_n": len(bagimsiz),
+             "ortusme_sismesi": round(sisme, 2)}
 
     if all(kapilar.values()):
         print(f"\nVERDİKT [{sleeve}]: KANIT VAR — kenar pozitif ve maliyete dayanıklı.")
@@ -336,12 +361,15 @@ def main() -> int:
     print("\n" + "═" * 78)
     print("ÖZET — aynı pencere, aynı maliyet, aynı kapılar")
     print("═" * 78)
-    print(f"{'kurulum':<26} {'ateşleme':>9} {'oran %':>8} {'ort net %':>10} {'t':>7} {'verdikt':>12}")
+    print(f"{'kurulum':<26} {'ateşleme':>9} {'oran %':>8} {'etkin n':>8} "
+          f"{'ort net %':>10} {'t':>7} {'verdikt':>12}")
     for r in sonuclar:
         st = r.get("istatistik") or {}
         print(f"{r['sleeve']:<26} {r.get('atesleme', '—'):>9} "
-              f"{r.get('atesleme_orani_pct', '—'):>8} {st.get('ort', '—'):>10} "
-              f"{st.get('t', '—'):>7} {r['verdikt']:>12}")
+              f"{r.get('atesleme_orani_pct', '—'):>8} {r.get('etkin_n', '—'):>8} "
+              f"{st.get('ort', '—'):>10} {st.get('t', '—'):>7} {r['verdikt']:>12}")
+    print("\nNOT: 'etkin n' örtüşmeyen işlem sayısıdır. Örtüşen ileri pencereler aynı")
+    print("ticareti defalarca sayar ve |t|'yi şişirir; kapılar etkin küme üzerinden geçilir.")
 
     if a.json:
         Path(a.json).parent.mkdir(parents=True, exist_ok=True)

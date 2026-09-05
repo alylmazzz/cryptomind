@@ -97,30 +97,46 @@ def fire(f: Dict, p, price: float, atr_abs: float) -> Optional[Dict]:
     }
 
 # ═════════════════════════════════════════════════════════════════════════
-# BİZ ÖLÇTÜK — 2026-09-05T17:22:55Z · mexc · 7 gün · 5 parite (1 dk bar)
+# BİZ ÖLÇTÜK — 2026-09-05T18:18:57Z · binance · 60 GÜN · 5 parite (1 dk bar)
 # ═════════════════════════════════════════════════════════════════════════
 # Bu blok SİLİNMEZ. Çürütülen ölçüm de kayıttır: bir kurulumun neden gölgede ya da
 # reddedilmiş olduğu, sonradan bakan birinin yeniden ölçmek zorunda kalmaması için
-# burada durur. Bütün katkılar AYNI 7 günlük pencerede, aynı maliyetle ölçüldü.
+# burada durur. Bütün katkılar AYNI 60 günlük pencerede, aynı maliyetle ölçüldü.
 #
-#   pencere 9600 · ateşleme 91 · oran %0.948
-#   ortalama net %-0.1378 · t -10.63 · CI95 [-0.1602, -0.1101] · kazanma %9.9
-#   alt-dönem: ilk yarı %-0.1577 · ikinci yarı %-0.1184
-#   çıkış sebepleri: {'STOP': 78, 'HEDEF': 13}
-#   2× maliyette beklenti: %-0.2778
+#   pencere 28640 · ateşleme 265 · oran %0.925
+#   örneklem: nominal 265 → ETKİN 230 (örtüşme şişmesi 1.15×)
+#   ortalama net %-0.1379 · t -19.71 · CI95 [-0.1512, -0.1232] · kazanma %10.4
+#   alt-dönem: ilk yarı %-0.135 · ikinci yarı %-0.1408
+#   çıkış sebepleri: {'HEDEF': 33, 'STOP': 197}
+#   2× maliyette beklenti: %-0.2779
 #
 # VERDİKT: GÖLGE
+#
+# GÖLGE bir RET DEĞİLDİR: kurulum sinyal üretir, EMİR VERMEZ ve ölçülmeye devam eder.
+#
+# İKİ PENCEREDE TUTARLI (her ikisi de örtüşme düzeltmesiyle):
+#     7 gün · MEXC   → etkin n 62  · ort −%0,1323 · t −7,64  · CI95 [−0,163, −0,095]
+#    60 gün · Binance → etkin n 230 · ort −%0,1379 · t −19,71 · CI95 [−0,151, −0,123]
+# Farklı borsa, 8,6 kat veri; iki ortalama farkı 7 günlük ölçümün güven aralığı içinde.
+# Alt dönemler de ayrışmıyor (−%0,135 / −%0,141). Kenarın yokluğu örneklem gürültüsü
+# DEĞİL, kuralın bu zaman diliminde ve maliyet yapısındaki kararlı bir özelliği.
+#
+# NOT — ÖRTÜŞME DÜZELTMESİNİN ETKİSİ ÖLÇÜLDÜ: düzeltmeden önce 7 günlük ölçüm
+# t = −10,63 diyordu; örtüşen ileri pencereler çıkarılınca t = −7,64'e indi
+# (nominal 90 → etkin 62, şişme 1,5×). Yön değişmedi ama BÜYÜKLÜK %39 abartılıydı.
+# Çıkışların 197/230'u stop: 1 dk barda 'aşırı satım' ortalamaya dönmüyor, düşüşün
+# devamı oluyor.
 # GÖLGE bir RET DEĞİLDİR: kurulum sinyal üretir, EMİR VERMEZ ve ölçülmeye devam
 # eder. Kanıt pozitife dönerse terfi yolu açıktır.
 #
 # Yeniden ölçmek için:
-#   python scripts/cm_verify_contribution.py --sleeve bbandrsi_freqtrade --days 7
+#   python scripts/cm_verify_contribution.py --sleeve bbandrsi_freqtrade --days 60 --venue binance --step 15
 MEASURED = {
-    "window": "7 gün · mexc · 1 dk",
-    "n_windows": 9600, "n_fires": 91,
-    "fire_rate_pct": 0.948,
-    "mean_net_pct": -0.1378, "t_stat": -10.63, "ci95": [-0.1602, -0.1101],
-    "win_rate": 0.099, "exit_reasons": {'STOP': 78, 'HEDEF': 13},
-    "expectancy_cost_x2_pct": -0.2778,
+    "window": "60 gün · binance · 1 dk",
+    "n_windows": 28640, "n_fires": 265, "n_effective": 230,
+    "fire_rate_pct": 0.925,
+    "mean_net_pct": -0.1379, "t_stat": -19.71, "ci95": [-0.1512, -0.1232],
+    "win_rate": 0.104, "exit_reasons": {'HEDEF': 33, 'STOP': 197},
+    "expectancy_cost_x2_pct": -0.2779,
     "verdict": "SHADOW",
 }

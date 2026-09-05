@@ -98,13 +98,13 @@ def fire(f: Dict, p, price: float, atr_abs: float, df=None) -> Optional[Dict]:
     }
 
 # ═════════════════════════════════════════════════════════════════════════
-# BİZ ÖLÇTÜK — 2026-09-05T17:25:00Z · mexc · 7 gün · 5 parite (1 dk bar)
+# BİZ ÖLÇTÜK — 2026-09-05T18:25:05Z · binance · 60 GÜN · 5 parite (1 dk bar)
 # ═════════════════════════════════════════════════════════════════════════
 # Bu blok SİLİNMEZ. Çürütülen ölçüm de kayıttır: bir kurulumun neden gölgede ya da
 # reddedilmiş olduğu, sonradan bakan birinin yeniden ölçmek zorunda kalmaması için
-# burada durur. Bütün katkılar AYNI 7 günlük pencerede, aynı maliyetle ölçüldü.
+# burada durur. Bütün katkılar AYNI 60 günlük pencerede, aynı maliyetle ölçüldü.
 #
-#   pencere 9600 · ateşleme 0 · oran %0.0
+#   pencere 28640 · ateşleme 0 · oran %0.0
 #
 # VERDİKT: REDDEDİLDİ — hiç ateşlemedi
 #
@@ -119,14 +119,16 @@ def fire(f: Dict, p, price: float, atr_abs: float, df=None) -> Optional[Dict]:
 # Yani bu kurulum sakin bir piyasada büyük pariteler için TANIM GEREĞİ ölü;
 # ancak çöküş günlerinde ya da yüksek oynaklıklı küçük paritelerde ateşler.
 # Port doğrudur: ham koşul bağımsız olarak ölçüldü ve o da 0 verdi.
-# ÖLÇÜM PENCERESİ SINIRI: 7 gün · 5 büyük parite · sakin dönem. Daha uzun ya da
-# oynak bir pencerede sonuç değişebilir — 'her zaman ölü' DEMEK DEĞİLDİR.
+# 60 GÜNLÜK PENCEREDE DE 0: ilk ölçüm 7 gündü ve 'pencere kısa olabilir' itirazı
+# meşruydu. 60 güne (Binance, 5×86.400 bar) çıkarıldı — sonuç yine 0 ateşleme.
+# Yani bu kurulum büyük paritelerde pratikte ölüdür; ancak bir çöküş gününde ya da
+# yüksek oynaklıklı küçük paritelerde ateşler. Bu pariteler+dönem için ölçülmüştür.
 #
 # Yeniden ölçmek için:
-#   python scripts/cm_verify_contribution.py --sleeve cluc_may_freqtrade --days 7
+#   python scripts/cm_verify_contribution.py --sleeve cluc_may_freqtrade --days 60 --venue binance --step 15
 MEASURED = {
-    "window": "7 gün · mexc · 1 dk",
-    "n_windows": 9600, "n_fires": 0,
+    "window": "60 gün · binance · 1 dk",
+    "n_windows": 28640, "n_fires": 0, "n_effective": None,
     "fire_rate_pct": 0.0,
     "verdict": "REJECTED",
 }

@@ -112,26 +112,28 @@ def fire(f: Dict, p, price: float, atr_abs: float, df=None) -> Optional[Dict]:
     }
 
 # ═════════════════════════════════════════════════════════════════════════
-# BİZ ÖLÇTÜK — 2026-09-05T17:20:51Z · mexc · 7 gün · 5 parite (1 dk bar)
+# BİZ ÖLÇTÜK — 2026-09-05T18:13:09Z · binance · 60 GÜN · 5 parite (1 dk bar)
 # ═════════════════════════════════════════════════════════════════════════
 # Bu blok SİLİNMEZ. Çürütülen ölçüm de kayıttır: bir kurulumun neden gölgede ya da
 # reddedilmiş olduğu, sonradan bakan birinin yeniden ölçmek zorunda kalmaması için
-# burada durur. Bütün katkılar AYNI 7 günlük pencerede, aynı maliyetle ölçüldü.
+# burada durur. Bütün katkılar AYNI 60 günlük pencerede, aynı maliyetle ölçüldü.
 #
-#   pencere 9720 · ateşleme 1699 · oran %17.479
+#   pencere 28680 · ateşleme 5070 · oran %17.678
 #
-# VERDİKT: REDDEDİLDİ — ateşleme oranı %17.5 > %15
+# VERDİKT: REDDEDİLDİ — ateşleme oranı %17.7 > %15
 #
 # Ateşleme kapısı kenar ölçülmeden ÖNCE devreye girer: %17,5 oran, kurulumun
 # piyasanın altıda birini 'giriş' saydığı anlamına gelir — seçici değildir.
 # Bu, özgün 1 SAATLİK bağlam hakkında bir yargı DEĞİLDİR: ADX>25 ve +DI>25 gibi
 # eşikler kısa barlarda çok daha sık sağlanır (bkz. SAPMALAR).
+# KARARLI: 7 gün/MEXC'te %17,5 · 60 gün/Binance'te %17,7 — farklı borsa, 8,6 kat
+# veri, neredeyse aynı oran. Bu bir örneklem kazası değil, kuralın özelliği.
 #
 # Yeniden ölçmek için:
-#   python scripts/cm_verify_contribution.py --sleeve adx_momentum_freqtrade --days 7
+#   python scripts/cm_verify_contribution.py --sleeve adx_momentum_freqtrade --days 60 --venue binance --step 15
 MEASURED = {
-    "window": "7 gün · mexc · 1 dk",
-    "n_windows": 9720, "n_fires": 1699,
-    "fire_rate_pct": 17.479,
+    "window": "60 gün · binance · 1 dk",
+    "n_windows": 28680, "n_fires": 5070, "n_effective": None,
+    "fire_rate_pct": 17.678,
     "verdict": "REJECTED",
 }

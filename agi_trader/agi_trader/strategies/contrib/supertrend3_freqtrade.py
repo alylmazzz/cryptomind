@@ -124,26 +124,27 @@ def fire(f: Dict, p, price: float, atr_abs: float, df=None) -> Optional[Dict]:
     }
 
 # ═════════════════════════════════════════════════════════════════════════
-# BİZ ÖLÇTÜK — 2026-09-05T17:27:49Z · mexc · 7 gün · 5 parite (1 dk bar)
+# BİZ ÖLÇTÜK — 2026-09-05T18:33:54Z · binance · 60 GÜN · 5 parite (1 dk bar)
 # ═════════════════════════════════════════════════════════════════════════
 # Bu blok SİLİNMEZ. Çürütülen ölçüm de kayıttır: bir kurulumun neden gölgede ya da
 # reddedilmiş olduğu, sonradan bakan birinin yeniden ölçmek zorunda kalmaması için
-# burada durur. Bütün katkılar AYNI 7 günlük pencerede, aynı maliyetle ölçüldü.
+# burada durur. Bütün katkılar AYNI 60 günlük pencerede, aynı maliyetle ölçüldü.
 #
-#   pencere 9660 · ateşleme 1967 · oran %20.362
+#   pencere 28660 · ateşleme 5912 · oran %20.628
 #
-# VERDİKT: REDDEDİLDİ — ateşleme oranı %20.4 > %15
+# VERDİKT: REDDEDİLDİ — ateşleme oranı %20.6 > %15
 #
 # Ateşleme oranı %20,4 — üç Supertrend'in aynı anda yukarı olması 1 dakikalık
 # barlarda nadir DEĞİL, olağan durumdur. Üçlü teyit burada seçicilik katmıyor.
 # Ayrıca FİDELİTE UYARISI geçerli: referans uygulama (technical kütüphanesi)
 # doğrulanamadı; bu ölçüm kanonik Supertrend'i ölçer.
+# KARARLI: 7 gün/MEXC'te %20,4 · 60 gün/Binance'te %20,6.
 #
 # Yeniden ölçmek için:
-#   python scripts/cm_verify_contribution.py --sleeve supertrend3_freqtrade --days 7
+#   python scripts/cm_verify_contribution.py --sleeve supertrend3_freqtrade --days 60 --venue binance --step 15
 MEASURED = {
-    "window": "7 gün · mexc · 1 dk",
-    "n_windows": 9660, "n_fires": 1967,
-    "fire_rate_pct": 20.362,
+    "window": "60 gün · binance · 1 dk",
+    "n_windows": 28660, "n_fires": 5912, "n_effective": None,
+    "fire_rate_pct": 20.628,
     "verdict": "REJECTED",
 }

@@ -275,3 +275,36 @@ def test_gecersiz_besinci_parametre_reddedilir(contrib_dizini, imza):
     CB.load(set())
     assert "kotu_imza" not in CB.CONTRIB
     assert any("beşinci" in h or "imza" in h for e in CB.LOAD_ERRORS for h in e["hatalar"])
+
+
+# ═══════════════════════════════ etkin örneklem (örtüşme) — 2026-09-05
+def test_ortusen_islemler_etkin_orneklemden_dusulur():
+    """Doğrulayıcı her `adim` barda pencere açar ve ateşlerse `ufuk_bar` ileri test eder.
+    adım 5 / ufuk 240 iken ardışık ateşlemeler ileri pencerenin %98'ini PAYLAŞIR — aynı
+    ticaret onlarca kez sayılır, |t| şişer. Etkin örneklem örtüşmeyen alt kümedir."""
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from cm_verify_contribution import _bagimsiz
+
+    # tek paritede 5 bar arayla 10 ateşleme, ufuk 240 → yalnız İLKİ bağımsız
+    kayit = [{"symbol": "BTC/USDT", "idx": 1000 + 5 * i, "net_pct": 0.0} for i in range(10)]
+    assert len(_bagimsiz(kayit, 240)) == 1
+
+    # ufuktan sonra başlayan işlem YENİ bir gözlemdir
+    kayit.append({"symbol": "BTC/USDT", "idx": 1000 + 240, "net_pct": 0.0})
+    assert len(_bagimsiz(kayit, 240)) == 2
+
+    # farklı pariteler birbirini örtmez
+    kayit.append({"symbol": "ETH/USDT", "idx": 1000, "net_pct": 0.0})
+    assert len(_bagimsiz(kayit, 240)) == 3
+
+    # ufuk 1 ise hiçbir şey örtüşmez
+    assert len(_bagimsiz(kayit, 1)) == len(kayit)
+
+
+def test_etkin_orneklem_kronolojik_sirayi_korur():
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from cm_verify_contribution import _bagimsiz
+    kayit = [{"symbol": "BTC/USDT", "idx": i, "net_pct": 0.0} for i in (500, 100, 300)]
+    idx = [k["idx"] for k in _bagimsiz(kayit, 100)]
+    assert idx == sorted(idx), "bağımsız küme kronolojik olmalı"
+    assert idx == [100, 300, 500]

@@ -96,6 +96,20 @@ Doğrulayıcı dört aşamayı sırayla uygular:
 4. **Kenar** — kurulumun kendi stop/hedefiyle ileri test, gidiş-dönüş maliyet düşülmüş.
    Beklenti, t-istatistiği, bootstrap CI, alt-dönem tutarlılığı, 2× maliyette dayanıklılık.
 
+**ETKİN ÖRNEKLEM (önemli):** doğrulayıcı her `--step` barda bir pencere açar ve ateşlerse
+`time_stop_min` boyunca ileri test eder. Adım 5, ufuk 240 iken ardışık iki ateşleme ileri
+pencerenin **%98'ini paylaşır** — yani aynı ticaret onlarca kez sayılır, nominal `n` şişer ve
+`|t|` olduğundan büyük çıkar. Bu yüzden istatistik ve kapılar **örtüşmeyen** alt kümede
+hesaplanır: bir işlem, aynı paritede bir öncekinin ufku bittikten sonra sayılır. Çıktıda
+`nominal → ETKİN (şişme ×N)` satırı bunu gösterir.
+
+**Veri penceresi:** MEXC 1 dakikalık geçmişi ~30 günle sınırlıdır (35 günde boş döner).
+Daha uzun pencere için `--venue binance` (ya da kucoin/bybit) kullanın:
+
+```bash
+python scripts/cm_verify_contribution.py --sleeve hepsi --days 60 --venue binance --step 15
+```
+
 Çıktıyı **olduğu gibi** PR açıklamasına yapıştırın. Negatif çıktıysa da yapıştırın.
 
 ### 4. PR açın

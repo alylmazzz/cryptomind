@@ -74,51 +74,73 @@ Reddettiren şey kanıtsızlık değil, **abartılmış iddia** ve **öznel tan�
 
 ### Ölçülmüş açık kaynak stratejiler
 
-**Yedi** açık kaynak strateji ([freqtrade/freqtrade-strategies](https://github.com/freqtrade/freqtrade-strategies),
-GPL-3.0) katkı hattından geçirildi. Kurallar kaynaktan doğrulandı, **kod kopyalanmadı** — yalnız
-kural, bu deponun kendi araçlarıyla bağımsız yazıldı. Her biri **60 gün · Binance · 1 dk**
-verisinde, **iki ayrı parite grubunda** ölçüldü:
+**On** açık kaynak strateji katkı hattından geçirildi. Kurallar kaynaktan doğrulandı,
+**kod kopyalanmadı** — yalnız kural, bu deponun kendi araçlarıyla bağımsız yazıldı.
+Her biri **60 gün · Binance · 1 dk** verisinde, **iki ayrı parite grubunda** ölçüldü:
 
 - **Büyük:** BTC, ETH, SOL, DOGE, AVAX — ort. %2,00 günlük oynaklık, saatlik $10,8M hacim
 - **Küçük/oynak:** BONK, ORDI, PYTH, ARB, PEPE — ort. %3,88 oynaklık, saatlik $176K hacim
-  (60 günlük geçmişi tam 16 aday arasından oynaklığa göre seçildi)
+
+Dokuzu [freqtrade/freqtrade-strategies](https://github.com/freqtrade/freqtrade-strategies)
+(GPL-3.0), biri yayımlanmış bir kitap kuralı (Connors & Alvarez) — tek kaynaklı örneklem
+yanlılığını kırmak için.
 
 | Kurulum | Aile | Büyük pariteler | Küçük/oynak pariteler |
 |---|---|---|---|
-| BbandRsi | BB + RSI ortalamaya dönüş | −%0,138 · t −19,71 · **GÖLGE** | −%0,067 · t −2,65 · GÖLGE |
-| Strategy001 | Heikin-Ashi + EMA kesişimi | −%0,193 · t −5,43 · GÖLGE | −%0,210 · t −4,34 · GÖLGE |
-| HLHB | RSI/EMA kesişimi + ADX | −%0,095 · t −2,23 · GÖLGE | −%0,220 · t −3,90 · GÖLGE |
-| ADXMomentum | ADX + DI± + momentum | oran %17,7 → REDDEDİLDİ | −%0,148 · t −13,08 · GÖLGE |
-| Supertrend (üçlü) | ATR trend bantları | oran %20,6 → REDDEDİLDİ | oran %15,3 → REDDEDİLDİ |
-| ClucMay72018 | derin BB sapması | n 6 → ÖLÇÜLEMEDİ | n 6 → ÖLÇÜLEMEDİ |
-| UniversalMACD | dar hyperopt bandı | n 3 → ÖLÇÜLEMEDİ | n 15 → ÖLÇÜLEMEDİ |
+| Connors RSI(2) | trend içi aşırı satım | −%0,137 · t −16,67 | −%0,078 · t −4,27 |
+| BbandRsi | BB 2σ + RSI | −%0,138 · t −19,71 | −%0,067 · t −2,65 |
+| Strategy001 | Heikin-Ashi + EMA | −%0,193 · t −5,43 | −%0,210 · t −4,34 |
+| HLHB | RSI/EMA kesişimi + ADX | −%0,095 · t −2,23 | −%0,220 · t −3,90 |
+| ADXMomentum | ADX + DI± + momentum | oran %17,7 → elendi | −%0,148 · t −13,08 |
+| Supertrend (üçlü) | ATR trend bantları | oran %20,6 → elendi | oran %15,3 → elendi |
+| Bandtastic | BB 1σ (teyitsiz) | oran %24,9 → elendi | oran %21,6 → elendi |
+| PowerTower | kuvvet karşılaştırması | oran %20,0 → elendi | oran %79,8 → elendi |
+| ClucMay72018 | derin BB sapması | n 6 → ölçülemedi | n 6 → ölçülemedi |
+| UniversalMACD | dar hyperopt bandı | n 3 → ölçülemedi | n 15 → ölçülemedi |
 
-**Yedisinden hiçbiri, hiçbir grupta kenar kanıtlayamadı.** Ölçülebilenlerin hepsi negatif;
-ikisi seçicilik kapısında elendi (piyasanın beşte birini "giriş" sayıyorlar); ikisi de
-n < 30 ile ölçülemedi.
+**Onundan hiçbiri, hiçbir grupta kenar kanıtlayamadı.**
 
-Üç ayrı sebeple başarısız oluyorlar ve bu ayrım önemli:
+#### En önemli bulgu: kalıp çalışıyor, hareket maliyetten küçük
 
-1. **Ölçüldü, kenar yok** (BbandRsi, Strategy001, HLHB, ADXMomentum) — hepsi 1 saatlik ya da
-   5 dakikalık barlar için yazılmış; 1 dakikada kesişim ve aşırılık sinyalleri gürültüye
-   dönüşüyor. HLHB'nin zararı küçük paritelerde iki katına çıkıyor (−%0,095 → −%0,220).
-2. **Seçici değil** (Supertrend, ADXMomentum-büyük) — koşul o kadar sık sağlanıyor ki
-   "kurulum" piyasanın kendisi oluyor. Kenar ölçülmeden kapıda eleniyorlar.
+Connors RSI(2) ölçümü diğer dokuzunu da yeniden okutuyor. Kurulum hedefini (SMA5) büyük
+paritelerde **%88,2**, küçüklerde **%90,5** oranında tutturuyor — yani "aşırı satımda al,
+ortalamaya dönüşte sat" kalıbı **gerçek ve güvenilir**. Sorun kalıbın yanlışlığı değil, ölçeği:
+
+| Grup | Hedef tutturma | Brüt hareket | Maliyet | Net |
+|---|---:|---:|---:|---:|
+| Büyük | %88,2 | +%0,0027 | %0,14 | −%0,137 |
+| Küçük/oynak | %90,5 | +%0,0617 | %0,14 | −%0,078 |
+
+Büyük paritelerde yakalanan brüt hareket, gidiş-dönüş maliyetin **1/50'si**. Oynak
+paritelerde brüt 23 kat büyüyor ama hâlâ maliyetin yarısına ulaşamıyor. Bu stratejilerin
+çoğu "yanlış" değil — **sürtünmenin kenardan büyük olduğu bir zaman diliminde**
+çalıştırılıyorlar. Hepsi günlük, 4 saatlik, 15 veya 5 dakikalık barlar için yazılmış.
+
+#### Üç farklı başarısızlık biçimi
+
+1. **Ölçüldü, kenar yok** (Connors, BbandRsi, Strategy001, HLHB, ADXMomentum) — yukarıdaki
+   sürtünme problemi.
+2. **Seçici değil** (Supertrend, Bandtastic, PowerTower, ADXMomentum-büyük) — koşul o kadar
+   sık sağlanıyor ki "kurulum" piyasanın kendisi oluyor; kenar ölçülmeden kapıda eleniyorlar.
 3. **Ölçülemeyecek kadar nadir** (ClucMay, UniversalMACD) — UniversalMACD'nin hyperopt ile
-   bulunmuş 0,0024 genişliğindeki bandı büyük paritelerde **54.000 barda bir** oluşuyor.
-   Buradaki bulgu kâr/zarar değil **taşınabilirlik**: optimize edildiği veriden çıkınca
-   neredeyse hiç tetiklenmeyen bir parametre bandı, bir piyasa mekanizmasını değil o verinin
-   gürültüsünü tarif ediyordur.
+   bulunmuş 0,0024 genişliğindeki bandı büyük paritelerde 54.000 barda bir oluşuyor.
+
+#### PowerTower: kapının neden var olduğunun kanıtı
+
+PowerTower'ın kuralı `close[0] > close[2] ** 3,849` — bir fiyatı, bir fiyatın 3,85. kuvvetiyle
+karşılaştırıyor. Bunların birimi farklı. Ölçüm kusursuz ikili ayrım verdi: fiyatı 1'in
+**altındaki** her paritede %99,9954, **üstündeki** her paritede %0,0000 ateşliyor. Kural bir
+alım-satım kurulumu değil, bir **fiyat büyüklüğü detektörü**; hyperopt "3,849" sayısını
+bulmuş çünkü optimize edildiği veride işe yarar bir eşik gibi görünmüş. Ateşleme oranı kapısı
+bunu kenar ölçülmeden önce eledi.
 
 Maliyet varsayımı (%0,14) küçük paritelerin ince defterleri için iyimserdir — bu yüzden
 **negatif sonuçlar sağlam**; pozitif bir sonuç çıksaydı gerçekçi maliyetle yeniden ölçülürdü.
 
-**Etkin örneklem:** doğrulayıcı her `--step` barda pencere açıp `time_stop_min` boyunca ileri
-test eder; ardışık ateşlemeler ileri pencereyi paylaşırsa aynı ticaret defalarca sayılır ve
-`|t|` şişer. İstatistik ve kapılar bu yüzden **örtüşmeyen** alt kümede hesaplanır.
-
-**Nadir kurulum uyarısı:** ~10.000 barda bir ateşleyen bir kurulumu adım örneklemesi yapısal
-olarak kaçırır. ClucMay ve UniversalMACD bu yüzden tam taramayla ölçüldü.
+**Etkin örneklem:** örtüşen ileri pencereler aynı ticareti defalarca sayıp `|t|`'yi şişirdiği
+için istatistik ve kapılar **örtüşmeyen** alt kümede hesaplanır.
+**Nadir kurulum uyarısı:** ~10.000 barda bir ateşleyen kurulumu adım örneklemesi yapısal
+olarak kaçırır; ClucMay ve UniversalMACD bu yüzden tam taramayla ölçüldü.
 
 Ayrıntı: [CONTRIBUTING.md](CONTRIBUTING.md) · Öneri için
 [strateji şablonu](../../issues/new?template=strateji-onerisi.yml)

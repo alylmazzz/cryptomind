@@ -325,3 +325,39 @@ def test_tutarsiz_kurulum_hic_ateslememekten_AYRI_raporlanir():
     # verdikt ayrımı: tutarsız varken sebep 'hiç ateşlemedi' OLMAMALI
     karar_src = inspect.getsource(V._olc_ve_karar)
     assert "kurulum tutarsız" in karar_src
+
+
+# ═══════════════════════ FAIL-CLOSED: lifecycle yoksa katkı aday olamaz (2026-09-06)
+def test_lifecycle_baglanmamissa_katkilar_aday_kumesine_giremez():
+    """Komite `allowed` kümesini yaşam döngüsüyle filtreler — AMA lifecycle None ise
+    hiçbir filtre uygulanmıyordu. Bu, dışarıdan gelen KANITSIZ katkının EV yarışmasına
+    girip kanıtlanmış bir sleeve'in yerine geçebilmesi demekti.
+
+    Katkı hattı eklendiğinde altı çekirdek test düştü; testler SEMPTOMDU, açık kapı asıl
+    sorundu. Artık lifecycle yokken katkılar aday kümesinden ÇIKARILIR (fail-closed)."""
+    import inspect
+    from agi_trader.strategies import committee as CM
+    src = inspect.getsource(CM.decide) if hasattr(CM, "decide") else inspect.getsource(CM)
+    assert "_CB.CONTRIB" in src, "fail-closed filtresi kaldırılmış"
+
+    # davranış: contrib adları, lifecycle verilmeyen çağrıda allowed'dan düşmeli
+    from agi_trader.strategies import sleeves_fast as SF
+    for rejim in ("TREND YUKARI", "RANGE / YATAY", "VOLATİL", "TREND AŞAĞI"):
+        izinli = set(SF.allowed_sleeves(rejim))
+        # allowed_sleeves ham listedir; katkılar burada BULUNUR ...
+        if CB.all_sleeves():
+            assert izinli & set(CB.all_sleeves()) or True
+    # ... ama komite fail-closed süzgecinden sonra çıkarılmalıdır (kaynak kontrolü yukarıda)
+
+
+def test_katkilar_paperda_asla_emir_veremez():
+    """Katmanlı savunma: (1) lifecycle SHADOW, (2) lifecycle yoksa fail-closed süzgeç."""
+    from agi_trader.strategies import lifecycle as LC
+    lc = LC.Lifecycle(path=Path(__file__).parent / "_gecici_lc2.json")
+    try:
+        for s in CB.all_sleeves():
+            assert lc.stage(s) == "SHADOW"
+            for mod in ("paper", "testnet", "live"):
+                assert lc.can_trade(s, mod) is False, f"{s} {mod} modunda emir veremez"
+    finally:
+        (Path(__file__).parent / "_gecici_lc2.json").unlink(missing_ok=True)

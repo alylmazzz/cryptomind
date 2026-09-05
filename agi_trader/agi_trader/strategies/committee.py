@@ -26,6 +26,7 @@ import pandas as pd
 
 from . import roles as R
 from . import video_scalp as VS
+from . import contrib as _CB
 
 STRATEGY_ID = "committee"
 STRATEGY_NAME = "Komite Stratejisi (12 rol · CryptoMind verileriyle)"
@@ -470,6 +471,13 @@ def evaluate(ctx: Dict, p: CommitteeParams, learned: Optional[Dict] = None) -> V
     mode = ctx.get("mode", "paper")
     if lifecycle is not None:
         allowed = [k for k in allowed if lifecycle.can_trade(k, mode)]
+    else:
+        # FAIL-CLOSED (2026-09-06): yaşam döngüsü BAĞLANMAMIŞSA topluluk katkıları aday
+        # kümesine GİREMEZ. Katkılar tanım gereği SHADOW'dur; kapı yokken onları "izinli"
+        # saymak, dışarıdan gelen KANITSIZ kodun EV yarışmasına girip kanıtlanmış bir
+        # sleeve'in yerine geçmesi demekti. Bu, katkı hattı eklendiğinde altı çekirdek
+        # testi düşürerek ortaya çıktı — testler semptomdu, açık kapı asıl sorundu.
+        allowed = [k for k in allowed if k not in _CB.CONTRIB]
     rel = (learned.get("reliability") or {})
     paused = set(learned.get("paused_sleeves") or [])
     if paused:

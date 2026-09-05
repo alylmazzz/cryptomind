@@ -1,0 +1,63 @@
+name: Strateji / kurulum önerisi
+description: Bir alım-satım kurulumu, algoritma ya da strateji modeli öner
+title: "[strateji] "
+labels: ["strateji", "ölçüm-bekliyor"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Önce okuyun:** Bu depoda katkılar SHADOW doğar — sinyal üretir, emir vermez.
+        Terfi kod incelemesiyle değil ÖLÇÜMLE olur. Kanıtınız yoksa sorun değil; **abartılmış
+        iddia** sorundur. Ayrıntı: [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md)
+  - type: input
+    id: kaynak
+    attributes:
+      label: Kaynak
+      description: Nereden geldi? URL, kitap, makale ya da "kendi fikrim".
+      placeholder: "https://... / Kaufman, Trading Systems and Methods / kendi fikrim"
+    validations: {required: true}
+  - type: textarea
+    id: mekanizma
+    attributes:
+      label: Mekanik tanım
+      description: >
+        Hangi koşullar AYNI ANDA sağlanınca tetiklenir? Her koşul koda çevrilebilir olmalı.
+        "Bariz destek", "güçlü momentum" gibi öznel ifadeler kabul edilmez.
+      placeholder: |
+        1. 4h trend yukarı (EMA50 > EMA200)
+        2. 1m RSI 35-45 bandına geri çekildi
+        3. Son 20 barın hacim ortalamasının 1,5 katı hacimle yukarı bar
+        Stop: giriş - 1,2 ATR   Hedef: giriş + 2,4 ATR
+    validations: {required: true}
+  - type: textarea
+    id: iddia
+    attributes:
+      label: İddia
+      description: Bu kurulumun ne yaptığı iddia ediliyor?
+    validations: {required: true}
+  - type: textarea
+    id: kanit
+    attributes:
+      label: İddianın kanıtı
+      description: >
+        Geri test var mı? Kaç işlem, hangi dönem, maliyet düşülmüş mü, örneklem dışı mı?
+        KANIT YOKSA "YOK" yazın — bu öneriyi reddettirmez.
+      placeholder: "YOK — sadece gözlem / 303 işlemlik geri test, 2023-2024, komisyon dahil, kazanma %36 R/R 1:4"
+    validations: {required: true}
+  - type: textarea
+    id: olcum
+    attributes:
+      label: Doğrulayıcı çıktısı (varsa)
+      description: "`python scripts/cm_verify_contribution.py --sleeve <ad> --days 7` çıktısını olduğu gibi yapıştırın."
+      render: text
+  - type: checkboxes
+    id: onay
+    attributes:
+      label: Onay
+      options:
+        - label: Kurulum mekanik olarak tanımlı; öznel ifade içermiyor.
+          required: true
+        - label: Kanıt alanını dürüstçe doldurdum (kanıt yoksa "YOK" yazdım).
+          required: true
+        - label: Katkının SHADOW doğacağını ve terfinin ölçüme bağlı olduğunu anladım.
+          required: true

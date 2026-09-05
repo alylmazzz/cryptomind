@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Katkı rehberi
+    url: https://github.com/alylmazzz/cryptomind/blob/main/CONTRIBUTING.md
+    about: Strateji önermeden önce okuyun — katkılar SHADOW doğar, terfi ölçümle olur.
+  - name: Tartışma
+    url: https://github.com/alylmazzz/cryptomind/discussions
+    about: Soru, fikir ve ölçüm tartışmaları için.

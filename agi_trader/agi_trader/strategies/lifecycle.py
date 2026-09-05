@@ -35,6 +35,15 @@ DEFAULT_SLEEVES = ["dip", "dip_moderate", "pullback", "breakout", "momentum", "c
 # kapılarından geçip PAPER'a terfi edebilirler.
 SHADOW_SLEEVES = ["fvg_fill", "ifvg_reclaim", "range_reclaim", "manipulation_candle", "opening_range",
                   "ema_engulf", "poc_reversion", "order_block", "stoch_cross_back", "bb_lower_band"]
+# TOPLULUK KATKILARI (2026-09-05) — istisnasiz SHADOW dogarlar. Kod incelemesinden gecmis
+# olmasi kenari oldugunu GOSTERMEZ; yalniz olcum gosterir. PAPER'a terfi icin
+# `scripts/cm_verify_contribution.py` ile uretilen kanit `gates()`i gecmelidir.
+try:
+    from . import contrib as _CB
+    CONTRIB_SLEEVES = list(_CB.all_sleeves())
+except Exception:                     # katki paketi yoksa cekirdek etkilenmez
+    CONTRIB_SLEEVES = []
+SHADOW_SLEEVES = SHADOW_SLEEVES + CONTRIB_SLEEVES
 DEFAULT_SLEEVES = DEFAULT_SLEEVES + SHADOW_SLEEVES
 
 

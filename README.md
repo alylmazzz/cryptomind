@@ -45,6 +45,36 @@ düşüşle yan yana gösterir.
 Her rayda düşüşe bağlı kaldıraç kısıcısı (yumuşak → tam, sert → yarı, kill → nakit + histerezis
 kilidi) ve 1×'in üstündeki maruziyet için günlük finansman gideri vardır.
 
+## Katkı — herkes strateji önerebilir
+
+Bu depo katkıya açıktır. Bir alım-satım kurulumu, algoritma ya da strateji modeliniz varsa
+ekleyebilirsiniz. Tek kural:
+
+> **Katkı SHADOW doğar.** Sinyal üretir, **emir vermez** — paper modda bile.
+> PAPER'a terfi bir kod incelemesi kararı değildir; **ölçüm** kararıdır.
+
+```bash
+cp agi_trader/agi_trader/strategies/contrib/SABLON.py    agi_trader/agi_trader/strategies/contrib/benim_kurulumum.py
+# META künyesini ve fire() fonksiyonunu doldurun, sonra KENDİ ölçümünüzü çalıştırın:
+cd agi_trader && python scripts/cm_verify_contribution.py --sleeve benim_kurulumum --days 7
+```
+
+Doğrulayıcı dört aşama uygular: **yükleme** (şema + imza + ad çakışması) → **statik denetim**
+(ağ erişimi, ileriye bakış `shift(-n)`, tohumsuz rastgelelik) → **gerçek veride ateşleme oranı**
+(%0'a yakın ya da %15 üstü reddedilir; ikisi de mantık hatasının ilk işaretidir) → **kenar**
+(kurulumun kendi stop/hedefiyle ileri test, maliyet düşülmüş, t-istatistiği + bootstrap CI +
+alt-dönem tutarlılığı).
+
+Terfi kapısı `lifecycle.gates()`'tir: OOS beklenti > 0, CI alt sınırı > 0, 2× maliyette pozitif,
+alt-dönem tutarlı, DSR > 0, PBO < 0,5, n ≥ 30. **Ölçülmemiş = geçilmedi.**
+
+**Kanıtınız yoksa sorun değil** — `claim_evidence` alanına `"YOK"` yazın. Ölçümde kaybeden
+katkı da birleşebilir; gölgede ölçülmeye devam eder ve rejim değişirse fark edilir.
+Reddettiren şey kanıtsızlık değil, **abartılmış iddia** ve **öznel tanım**dır.
+
+Ayrıntı: [CONTRIBUTING.md](CONTRIBUTING.md) · Öneri için
+[strateji şablonu](../../issues/new?template=strateji-onerisi.yml)
+
 ## Kurulum
 
 ```bash
@@ -69,7 +99,7 @@ python trend_daemon.py --tracks base,aggressive,extreme,max
 Testler:
 
 ```bash
-cd agi_trader && python -m pytest tests/ -q      # 753 test
+cd agi_trader && python -m pytest tests/ -q      # 780 test
 ```
 
 ## Güvenlik notları

@@ -1,0 +1,30 @@
+name: Hata bildirimi
+description: Bir şey beklendiği gibi çalışmıyor
+title: "[hata] "
+labels: ["hata"]
+body:
+  - type: textarea
+    id: ne_oldu
+    attributes:
+      label: Ne oldu, ne bekleniyordu
+    validations: {required: true}
+  - type: textarea
+    id: tekrar
+    attributes:
+      label: Nasıl tekrarlanır
+      description: Asgari adımlar. Tekrarlanamayan hata düzeltilemez.
+      placeholder: |
+        1. python cryptomind_serve.py --port 8210
+        2. curl localhost:8210/api/...
+        3. Beklenen X, gelen Y
+    validations: {required: true}
+  - type: textarea
+    id: ortam
+    attributes:
+      label: Ortam
+      placeholder: "Python 3.12 / Windows 11 / AGI_LIGHT_MODE=1"
+  - type: textarea
+    id: log
+    attributes:
+      label: Hata çıktısı
+      render: text

@@ -74,63 +74,51 @@ Reddettiren şey kanıtsızlık değil, **abartılmış iddia** ve **öznel tan�
 
 ### Ölçülmüş açık kaynak stratejiler
 
-Dört açık kaynak strateji ([freqtrade/freqtrade-strategies](https://github.com/freqtrade/freqtrade-strategies),
-GPL-3.0) katkı hattından geçirildi. Kurallar kaynaktan doğrulandı, **kod kopyalanmadı** —
-yalnız kural, bu deponun kendi araçlarıyla bağımsız yazıldı. Hepsi **aynı 60 günlük pencerede,
-aynı 5 paritede, aynı maliyetle** ölçüldü (Binance, 5 × 86.400 bar).
+**Yedi** açık kaynak strateji ([freqtrade/freqtrade-strategies](https://github.com/freqtrade/freqtrade-strategies),
+GPL-3.0) katkı hattından geçirildi. Kurallar kaynaktan doğrulandı, **kod kopyalanmadı** — yalnız
+kural, bu deponun kendi araçlarıyla bağımsız yazıldı. Her biri **60 gün · Binance · 1 dk**
+verisinde, **iki ayrı parite grubunda** ölçüldü:
 
-| Kurulum | Ateşleme | Oran | Etkin n | Ort. net | t | Verdikt |
-|---|---:|---:|---:|---:|---:|---|
-| BbandRsi | 265 | %0,93 | 230 | −%0,138 | −19,71 | **GÖLGE** |
-| ADXMomentum | 5070 | %17,7 | — | — | — | REDDEDİLDİ |
-| Supertrend (üçlü) | 5912 | %20,6 | — | — | — | REDDEDİLDİ |
-| ClucMay72018 | 0 | %0,00 | — | — | — | REDDEDİLDİ |
+- **Büyük:** BTC, ETH, SOL, DOGE, AVAX — ort. %2,00 günlük oynaklık, saatlik $10,8M hacim
+- **Küçük/oynak:** BONK, ORDI, PYTH, ARB, PEPE — ort. %3,88 oynaklık, saatlik $176K hacim
+  (60 günlük geçmişi tam 16 aday arasından oynaklığa göre seçildi)
 
-Aynı dört strateji **küçük/oynak paritelerde** de ölçüldü (BONK, ORDI, PYTH, ARB, PEPE —
-60 günlük geçmişi tam 16 aday arasından oynaklığı en yüksek 5; grup ortalaması %3,88 günlük
-oynaklık ve saatlik $176K hacim, yani büyüklere göre 1,94× oynak ama 61× ince):
+| Kurulum | Aile | Büyük pariteler | Küçük/oynak pariteler |
+|---|---|---|---|
+| BbandRsi | BB + RSI ortalamaya dönüş | −%0,138 · t −19,71 · **GÖLGE** | −%0,067 · t −2,65 · GÖLGE |
+| Strategy001 | Heikin-Ashi + EMA kesişimi | −%0,193 · t −5,43 · GÖLGE | −%0,210 · t −4,34 · GÖLGE |
+| HLHB | RSI/EMA kesişimi + ADX | −%0,095 · t −2,23 · GÖLGE | −%0,220 · t −3,90 · GÖLGE |
+| ADXMomentum | ADX + DI± + momentum | oran %17,7 → REDDEDİLDİ | −%0,148 · t −13,08 · GÖLGE |
+| Supertrend (üçlü) | ATR trend bantları | oran %20,6 → REDDEDİLDİ | oran %15,3 → REDDEDİLDİ |
+| ClucMay72018 | derin BB sapması | n 6 → ÖLÇÜLEMEDİ | n 6 → ÖLÇÜLEMEDİ |
+| UniversalMACD | dar hyperopt bandı | n 3 → ÖLÇÜLEMEDİ | n 15 → ÖLÇÜLEMEDİ |
 
-| Kurulum | Ateşleme | Oran | Etkin n | Ort. net | t | Verdikt |
-|---|---:|---:|---:|---:|---:|---|
-| ADXMomentum | 3615 | %12,6 | 1495 | −%0,148 | −13,08 | GÖLGE |
-| BbandRsi | 218 | %0,76 | 192 | −%0,067 | −2,65 | GÖLGE |
-| Supertrend (üçlü) | 4396 | %15,3 | — | — | — | REDDEDİLDİ |
-| ClucMay72018 | 6 | %0,007 | 6 | −%2,52 | −2,51 | ÖLÇÜLEMEDİ (n<30) |
+**Yedisinden hiçbiri, hiçbir grupta kenar kanıtlayamadı.** Ölçülebilenlerin hepsi negatif;
+ikisi seçicilik kapısında elendi (piyasanın beşte birini "giriş" sayıyorlar); ikisi de
+n < 30 ile ölçülemedi.
 
-**Hiçbiri, hiçbir grupta kenar kanıtlayamadı.** Oynak paritelerde iki şey değişti:
-ADXMomentum'un ateşleme oranı %17,7 → %12,6 ile kapıyı geçti ve ölçülebildi — altından kenar
-değil net zarar çıktı; BbandRsi'nin zararı yarılandı (−%0,138 → −%0,067) ama güven aralığının
-üst ucu hâlâ negatif. Maliyet varsayımı (%0,14) bu ince defterler için iyimser olduğundan
-**negatif sonuçlar sağlam**; pozitif bir sonuç çıksaydı gerçekçi maliyetle yeniden ölçülmesi
-gerekirdi.
+Üç ayrı sebeple başarısız oluyorlar ve bu ayrım önemli:
 
-**ClucMay: sıfır ateşlemenin sebebi strateji değil, portun kendisiydi.** İlk teşhis "kurulum
-pratikte ölü" idi ve YANLIŞTI. Tam tarama gösterdi ki ham koşul 60 günde 10 paritede 28 kez
-ateşliyor; ama stopu bandın altına koymuştuk ve fiyat bandın %1,5 altına indiğinde o seviye
-girişin ÜSTÜNDE kalıyor — 28'inin 28'i bu yüzden kurulamıyordu. Stop oransal hâle getirildi.
-Sonrasında bile n = 6–10 ile kapının n ≥ 30 eşiğinin altında: **ölçülemedi**. İki farklı tarama
-zıt işaret verdi (tam tarama +%0,32 / adım-5 −%2,52) — bu, "n yetersiz"in ta kendisi.
+1. **Ölçüldü, kenar yok** (BbandRsi, Strategy001, HLHB, ADXMomentum) — hepsi 1 saatlik ya da
+   5 dakikalık barlar için yazılmış; 1 dakikada kesişim ve aşırılık sinyalleri gürültüye
+   dönüşüyor. HLHB'nin zararı küçük paritelerde iki katına çıkıyor (−%0,095 → −%0,220).
+2. **Seçici değil** (Supertrend, ADXMomentum-büyük) — koşul o kadar sık sağlanıyor ki
+   "kurulum" piyasanın kendisi oluyor. Kenar ölçülmeden kapıda eleniyorlar.
+3. **Ölçülemeyecek kadar nadir** (ClucMay, UniversalMACD) — UniversalMACD'nin hyperopt ile
+   bulunmuş 0,0024 genişliğindeki bandı büyük paritelerde **54.000 barda bir** oluşuyor.
+   Buradaki bulgu kâr/zarar değil **taşınabilirlik**: optimize edildiği veriden çıkınca
+   neredeyse hiç tetiklenmeyen bir parametre bandı, bir piyasa mekanizmasını değil o verinin
+   gürültüsünü tarif ediyordur.
 
-Sonuçlar **iki bağımsız pencerede tutarlı**: aynı ölçüm 7 gün/MEXC'te de yapıldı —
-ADXMomentum %17,5 → %17,7 · Supertrend %20,4 → %20,6 · ClucMay 0 → 0 · BbandRsi ortalama
-−%0,132 (etkin n 62, t −7,64) → −%0,138 (etkin n 230, t −19,71). Farklı borsa, 8,6 kat veri;
-iki ortalama arasındaki fark 7 günlük ölçümün güven aralığının (−%0,163 … −%0,095) içinde.
-Kenarın yokluğu örneklem gürültüsü değil.
+Maliyet varsayımı (%0,14) küçük paritelerin ince defterleri için iyimserdir — bu yüzden
+**negatif sonuçlar sağlam**; pozitif bir sonuç çıksaydı gerçekçi maliyetle yeniden ölçülürdü.
 
 **Etkin örneklem:** doğrulayıcı her `--step` barda pencere açıp `time_stop_min` boyunca ileri
 test eder; ardışık ateşlemeler ileri pencereyi paylaşırsa aynı ticaret defalarca sayılır ve
-`|t|` şişer. İstatistik ve kapılar bu yüzden **örtüşmeyen** alt kümede hesaplanır
-(BbandRsi: nominal 265 → etkin 230).
+`|t|` şişer. İstatistik ve kapılar bu yüzden **örtüşmeyen** alt kümede hesaplanır.
 
-Bunlar "bu stratejiler kötü" demek değildir. Hepsi 1 saatlik ya da 5 dakikalık barlar için
-yazılmış; burada 1 dakikalık barlarda ve bu maliyet yapısında ölçüldüler. Her dosyanın
-başındaki **SAPMALAR** notu farkı açıkça yazar, `MEASURED` bloğu da sonucu kalıcı tutar —
-çürütülen ölçüm bu depoda silinmez.
-
-ClucMay'in sıfır ateşlemesi ayrıca ölçülerek açıklandı: ilk hipotez ("zaman dilimi değişti")
-**çürütüldü** — `close < 0,985×bb_lower` koşulu 5 dakikalık barlarda da %0,000 sıklıkta.
-Sebep ölçek: Bollinger yarım genişliği %0,14–0,52 iken koşul bandın %1,5 altını istiyor.
-"Pencere kısaydı" itirazı da 60 günle karşılandı: sonuç yine 0.
+**Nadir kurulum uyarısı:** ~10.000 barda bir ateşleyen bir kurulumu adım örneklemesi yapısal
+olarak kaçırır. ClucMay ve UniversalMACD bu yüzden tam taramayla ölçüldü.
 
 Ayrıntı: [CONTRIBUTING.md](CONTRIBUTING.md) · Öneri için
 [strateji şablonu](../../issues/new?template=strateji-onerisi.yml)

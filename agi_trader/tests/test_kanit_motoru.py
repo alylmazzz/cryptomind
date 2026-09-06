@@ -228,3 +228,55 @@ def test_iki_EV_de_kanit_satirinda(tmp_path):
     assert s["ev"] == pytest.approx(0.57) and s["eva"] == pytest.approx(-0.15)
     yok = EV.satir(_t(0.3))
     assert yok["ev"] is None and yok["eva"] is None, "yoksa None olmalı, 0 değil"
+
+
+# ═══════════ 7) EV KALİBRASYON ÖLÇERİNİN KENDİSİ DOĞRU MU ═══════════
+def _calib():
+    import importlib.util
+    sp = Path(__file__).resolve().parents[1] / "scripts" / "cm_ev_calib.py"
+    spec = importlib.util.spec_from_file_location("cm_ev_calib", sp)
+    m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+    return m
+
+
+def test_kalibrasyon_olceri_MUKEMMEL_tahmini_tanir():
+    """gerçekleşen = vaat olduğunda: r=1, eğim=1, tekdüze, bilgi VAR."""
+    C = _calib()
+    cift = [(x / 10.0, x / 10.0) for x in range(-25, 26)]
+    d = C.analiz(cift, "test")
+    assert d["pearson"] == pytest.approx(1.0, abs=1e-6)
+    assert d["kalibrasyon_egimi"] == pytest.approx(1.0, abs=1e-6)
+    assert d["yanlilik"] == pytest.approx(0.0, abs=1e-9)
+    assert d["tekduze"] is True and d["bilgi_var"] is True
+
+
+def test_kalibrasyon_olceri_BILGISIZ_tahmini_tanir():
+    """Vaat ile gerçekleşen ilişkisizse: r≈0, eğim≈0, bilgi YOK."""
+    C = _calib()
+    import random
+    rnd = random.Random(7)
+    cift = [(rnd.uniform(-1, 1), rnd.uniform(-1, 1)) for _ in range(400)]
+    d = C.analiz(cift, "test")
+    assert abs(d["pearson"]) < 0.15
+    assert d["bilgi_var"] is False, "ilişkisiz veride 'bilgi var' DENMEMELİ"
+
+
+def test_kalibrasyon_olceri_SISKIN_ama_BILGILI_tahmini_ayirt_eder():
+    """En önemli ayrım: bir tahmin ŞİŞKİN olabilir ama yine de SIRALAMA bilgisi taşır.
+    ev_pct tam olarak bu durumda olabilir — 5 kat şişik ama sıralaması işe yarıyor mu?"""
+    C = _calib()
+    cift = [(x / 10.0, x / 50.0 - 0.4) for x in range(-25, 26)]   # 5× şişik + kayık
+    d = C.analiz(cift, "test")
+    assert d["pearson"] == pytest.approx(1.0, abs=1e-6), "sıralama bilgisi TAM"
+    assert d["kalibrasyon_egimi"] == pytest.approx(0.2, abs=1e-6), "eğim 1/5 → 5× şişik"
+    assert d["yanlilik"] > 0.3, "yanlılık ayrı raporlanmalı"
+    assert d["bilgi_var"] is True, "şişkinlik ≠ bilgisizlik"
+
+
+def test_kalibrasyon_olceri_TERS_tahmini_yakalar():
+    C = _calib()
+    cift = [(x / 10.0, -x / 10.0) for x in range(-25, 26)]
+    d = C.analiz(cift, "test")
+    assert d["pearson"] < -0.9 and d["kalibrasyon_egimi"] < 0
+    assert d["bilgi_var"] is False, "ters ilişkide 'bilgi var (pozitif)' denmemeli"
+    assert d["tekduze"] is False

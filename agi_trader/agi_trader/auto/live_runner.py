@@ -1152,6 +1152,45 @@ class LiveRunner:
         self._ev_cache = (now, o)
         return o
 
+    def _ev_calib_report(self, ttl: float = 900.0) -> Dict:
+        """Hangi EV öngörüyor: `ev_pct` (plan hedefi) mi `ev_achievable_pct` (ölçülmüş) mü?
+        Rotasyon kapısı ŞU AN `ev_pct` kullanıyor ve o sayının 182 işlemde korelasyonu
+        +0,089 (öngörü yok). Karar bu ölçüme bağlanacak."""
+        now = time.time()
+        hit = getattr(self, "_evc_cache", None)
+        if hit and now - hit[0] < ttl:
+            return hit[1]
+        try:
+            tag = f"{self.user_id}_{self.cfg.exchange_id}"
+            ev_c, eva_c, ikisi = [], [], []
+            for r in EV.oku(self.output_dir, tag=tag):
+                y = r.get("np")
+                if y is None:
+                    continue
+                if r.get("ev") is not None:
+                    ev_c.append((float(r["ev"]), float(y)))
+                if r.get("eva") is not None:
+                    eva_c.append((float(r["eva"]), float(y)))
+                if r.get("ev") is not None and r.get("eva") is not None:
+                    ikisi.append(1)
+            def _r(c):
+                if len(c) < 5:
+                    return None
+                xs = [a for a, _ in c]; ys = [b for _, b in c]
+                mx = sum(xs) / len(xs); my = sum(ys) / len(ys)
+                sx = (sum((a - mx) ** 2 for a in xs) / len(xs)) ** 0.5
+                sy = (sum((b - my) ** 2 for b in ys) / len(ys)) ** 0.5
+                if sx <= 0 or sy <= 0:
+                    return None
+                return round(sum((a - mx) * (b - my) for a, b in c) / len(c) / (sx * sy), 3)
+            o = {"n_ev": len(ev_c), "n_eva": len(eva_c), "n_ikisi": len(ikisi),
+                 "r_ev": _r(ev_c), "r_eva": _r(eva_c), "hazir": len(ikisi) >= 50,
+                 "not": "n≥50 olunca scripts/cm_ev_calib.py tam raporu verir"}
+        except Exception as e:
+            o = {"hata": type(e).__name__}
+        self._evc_cache = (now, o)
+        return o
+
     def _news_impact_report(self, ttl: float = 600.0) -> Dict:
         """Hangi haber TÜRÜ hangi paritede ne kadar hareket yaptırıyor. TTL'li önbellek."""
         now = time.time()
@@ -2396,6 +2435,7 @@ class LiveRunner:
                 "tca": self._tca_report(),
                 "kanit": self._evidence_report(),
                 "haber_etki": self._news_impact_report(),
+                "ev_kalibrasyon": self._ev_calib_report(),
                 "risk_mode": self.risk, "cash_mode": self.cash_mode, "portfolio_mode": self.portfolio,
                 "resource": self.resource, "best_action": self.best_action(),
                 "top_opportunities": self.top_opportunities(3),

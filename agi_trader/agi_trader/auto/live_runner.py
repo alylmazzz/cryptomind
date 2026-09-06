@@ -42,6 +42,7 @@ from ..learn.lessons import LessonEngine
 from ..learn.missed import MissedEngine
 from ..notify.alerts import AlertBus
 from ..research.lab import ResearchLab
+from ..sentiment.news_impact import HaberEtkiMotoru
 import hashlib
 from ..risk.live_guard import LiveGuard, audit, live_enabled, reconcile
 from ..strategies import committee as CM
@@ -505,6 +506,7 @@ class LiveRunner:
         self.allocator = MetaAllocator(live / f"allocator_{tag}.json", SF.REGIME_SLEEVES)
         self.missed = MissedEngine(live / f"missed_{tag}.json", journal_md=live / f"KACIRILANLAR_{tag}.md",
                                    journal_jsonl=live / f"missed_{tag}.jsonl")
+        self.haber = HaberEtkiMotoru(output_dir, tag)
         self.lab = ResearchLab(live, tag, cfg.exchange_id, fetch_tickers=self._fetch_tickers_safe,
                                taker_bps=self.venue.taker_bps, maker_bps=self.venue.maker_bps)
         self._public_broker: Optional[Callable[[str], Broker]] = None
@@ -944,6 +946,26 @@ class LiveRunner:
                 except Exception as e:
                     self._log("error", f"{sym} giriş hatası: {type(e).__name__}: {str(e)[:100]}")
 
+            # --- 6b) HABER ETKİSİ: gözle (haber görüldüğünde) + çöz (ufuk dolunca) ---
+            # `scan()` olay türünü ZATEN üretiyordu ama hiçbir yerde saklanmıyordu; bu yüzden
+            # `EVENT_PRIOR`'daki 19 yön tahmini hiç ölçülemedi. Artık ölçülüyor.
+            try:
+                for sym in list(prices):
+                    nw = self.ctx.news(sym) or {}
+                    kat = nw.get("top_event")
+                    if not kat or kat == "OTHER":
+                        continue
+                    hl = (nw.get("headlines") or [{}])[0]
+                    self.haber.gozle(sym, kat, int(hl.get("tier") or 3),
+                                     float(nw.get("score") or 0.0), prices[sym],
+                                     float((self.light.get(sym) or {}).get("atr_pct") or 0.3), now)
+                for r in self.haber.coz(prices, now):
+                    if abs(float(r.get("z") or 0)) >= 2.0:
+                        self._log("learn", f"📰 {r['sym']} {r['kat']} ({r['ufuk']}): "
+                                           f"%{r['r']:+.2f} · normalin {abs(r['z']):.1f} katı")
+            except Exception as e:
+                self._log("error", f"haber etki motoru: {type(e).__name__}: {str(e)[:80]}")
+
             # --- 7) gölgeler → kaçırılanlar → dersler → challenger → araştırma lab'ı ---
             if self.cfg.strategy == "committee":
                 for s in self.lessons.update_shadows(frames, now):
@@ -1128,6 +1150,20 @@ class LiveRunner:
         except Exception as e:
             o = {"hata": type(e).__name__}
         self._ev_cache = (now, o)
+        return o
+
+    def _news_impact_report(self, ttl: float = 600.0) -> Dict:
+        """Hangi haber TÜRÜ hangi paritede ne kadar hareket yaptırıyor. TTL'li önbellek."""
+        now = time.time()
+        hit = getattr(self, "_ni_cache", None)
+        if hit and now - hit[0] < ttl:
+            return hit[1]
+        try:
+            o = self.haber.ozet("4h")
+            o["prior_karsilastirma"] = self.haber.prior_karsilastir("4h")
+        except Exception as e:
+            o = {"hata": type(e).__name__}
+        self._ni_cache = (now, o)
         return o
 
     def _tca_report(self, ttl: float = 120.0) -> Dict:
@@ -2353,6 +2389,7 @@ class LiveRunner:
                                            for k, v in list(self.exit_state.items())[-20:]}},
                 "tca": self._tca_report(),
                 "kanit": self._evidence_report(),
+                "haber_etki": self._news_impact_report(),
                 "risk_mode": self.risk, "cash_mode": self.cash_mode, "portfolio_mode": self.portfolio,
                 "resource": self.resource, "best_action": self.best_action(),
                 "top_opportunities": self.top_opportunities(3),

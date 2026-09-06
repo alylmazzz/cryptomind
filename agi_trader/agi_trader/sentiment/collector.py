@@ -150,6 +150,10 @@ def from_rss(limit_per_feed: int = 20) -> List[Dict]:
 # ===========================================================================
 # Depolama + döngü
 # ===========================================================================
+# Parquet yolundan neden düşüldüğü — sessizce yutulmaz, teşhis edilebilir kalır.
+_SON_YEDEK_SEBEP: List[str] = []
+
+
 def append(rows: List[Dict]) -> Optional[Path]:
     if not rows:
         return None
@@ -159,21 +163,38 @@ def append(rows: List[Dict]) -> Optional[Path]:
     if df.empty:
         return None
     base = _out_dir() / df["ts"].iloc[0].strftime("%Y-%m")
+
+    def _tekille(yeni: pd.DataFrame, eski: Optional[pd.DataFrame]) -> pd.DataFrame:
+        """Aynı metni iki kez sayma (RSS/CryptoPanic aynı başlığı tekrar yayınlar)."""
+        birlesik = pd.concat([eski, yeni], ignore_index=True) if eski is not None else yeni
+        return birlesik.drop_duplicates(subset=["source", "handle", "text"], keep="first")
+
     try:
         import pyarrow  # noqa: F401
         path = base.with_suffix(".parquet")
-        if path.exists():
-            old = pd.read_parquet(path)
-            df = pd.concat([old, df], ignore_index=True)
-            # aynı metni iki kez sayma (RSS/CryptoPanic tekrarları)
-            df = df.drop_duplicates(subset=["source", "handle", "text"], keep="first")
+        df = _tekille(df, pd.read_parquet(path) if path.exists() else None)
         df.to_parquet(path, index=False)
         return path
-    except Exception:
+    except Exception as e:
+        # YEDEK YOL — parquet yoksa/yazılamazsa .csv.gz.
+        # 2026-09-05 (CI bulgusu): burada "ekle" modu kullanılıyordu ve TEKRAR AYIKLAMA
+        # ATLANIYORDU. Sonuç: pyarrow kurulu OLMAYAN her makinede aynı haber defalarca
+        # sayılıyor, olay deposu şişiyor ve haber-tabanlı sinyaller sahte yoğunluk görüyordu.
+        # Yerelde pyarrow kurulu olduğu için bu yol hiç çalışmamış, hata iki farklı testte
+        # ancak temiz kurulumda ortaya çıkmıştı. Yedek yol artık ASIL yolla aynı semantiği
+        # uygular: oku → birleştir → tekilleştir → yeniden yaz.
+        _SON_YEDEK_SEBEP.append(f"{type(e).__name__}: {e}")
+        del _SON_YEDEK_SEBEP[:-5]
         path = base.with_suffix(".csv.gz")
-        header = not path.exists()
-        with gzip.open(path, "at", encoding="utf-8", newline="") as f:
-            df.to_csv(f, index=False, header=header)
+        eski = None
+        if path.exists():
+            try:
+                eski = pd.read_csv(path)
+            except Exception:
+                eski = None          # bozuk dosya yeni kaydı engellemesin
+        df = _tekille(df, eski)
+        with gzip.open(path, "wt", encoding="utf-8", newline="") as f:
+            df.to_csv(f, index=False, header=True)
         return path
 
 

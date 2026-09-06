@@ -30,9 +30,22 @@ import pandas as pd
 EXIT_FIXED, EXIT_PARTIAL_RUN, EXIT_DYNAMIC_PEAK = "FIXED_TARGET", "PARTIAL_AND_RUN", "DYNAMIC_PEAK"
 
 from . import sleeves_video as SV
+from . import contrib as CB
+
+# Topluluk katkilari: SHADOW dogarlar (sinyal uretir, EMIR VERMEZ). Yukleme burada yapilir
+# ki cakisan bir ad mevcut bir sleeve'in yerine gecemesin - `load` mevcut adlari alir ve
+# cakisirsa katkiyi REDDEDER (sebebi CB.LOAD_ERRORS'a yazilir, sessizce yutulmaz).
+_YERLESIK_ADLAR = {
+    "dip", "dip_moderate", "pullback", "breakout", "momentum", "catalyst", "squeeze_breakout",
+    "sweep_reversal", "range_edge", "vwap_reversion", "vwap_continuation", "rs_momentum",
+    "news_overreaction", "adaptive_trend", "donchian_breakout", "bos_retest", "failed_breakdown",
+    "failed_breakout", "obi_momentum", "swing_trend",
+} | set(SV.ALL_VIDEO_SLEEVES)
+CB.load(_YERLESIK_ADLAR)
 
 SLEEVE_TR = {
     **SV.SLEEVE_TR_VIDEO,
+    **CB.sleeve_tr(),
     "squeeze_breakout": "sıkışma-kırılım", "sweep_reversal": "likidite süpürme dönüşü",
     "range_edge": "range kenarı", "vwap_reversion": "VWAP dönüşü", "vwap_continuation": "VWAP devamı",
     "rs_momentum": "göreli güç momentumu", "news_overreaction": "haber aşırı-tepki dönüşü",
@@ -45,6 +58,7 @@ SLEEVE_TR = {
 }
 SLEEVE_EXIT_MODE = {
     **SV.SLEEVE_EXIT_MODE_VIDEO,
+    **CB.sleeve_exit_mode(),
     "dip": EXIT_PARTIAL_RUN, "dip_moderate": EXIT_FIXED, "pullback": EXIT_PARTIAL_RUN,
     "breakout": EXIT_DYNAMIC_PEAK, "momentum": EXIT_DYNAMIC_PEAK, "catalyst": EXIT_DYNAMIC_PEAK,
     "squeeze_breakout": EXIT_DYNAMIC_PEAK, "sweep_reversal": EXIT_PARTIAL_RUN, "range_edge": EXIT_FIXED,
@@ -57,6 +71,7 @@ SLEEVE_EXIT_MODE = {
 # sleeve başına zaman-stop (dk) — scalp ile kırılım aynı süreyi kullanmaz
 SLEEVE_TIME_STOP_MIN = {
     **SV.SLEEVE_TIME_STOP_MIN_VIDEO,
+    **CB.sleeve_time_stop_min(),
     "dip": 90, "dip_moderate": 90, "pullback": 120, "breakout": 180, "momentum": 120,      # kazanan medyanı 45 dk → ufuk 90
     "catalyst": 180, "squeeze_breakout": 180, "sweep_reversal": 90, "range_edge": 120,
     "vwap_reversion": 60, "vwap_continuation": 120, "rs_momentum": 180, "news_overreaction": 60,
@@ -67,6 +82,7 @@ SLEEVE_TIME_STOP_MIN = {
 # Aciliyet: maker kaç bar bekleyebilir? 0 = anında taker (kırılım/katalizör kaçar), 2 = sabırlı (dip/geri çekilme)
 SLEEVE_URGENCY = {
     **SV.SLEEVE_URGENCY_VIDEO,
+    **CB.sleeve_urgency(),
     "catalyst": 0, "breakout": 0, "squeeze_breakout": 0, "donchian_breakout": 0, "momentum": 0, "rs_momentum": 0,
     "obi_momentum": 0, "sweep_reversal": 1, "failed_breakdown": 1, "bos_retest": 1, "vwap_continuation": 1,
     "adaptive_trend": 1, "dip": 2, "dip_moderate": 2, "pullback": 2, "range_edge": 2, "vwap_reversion": 2,
@@ -119,8 +135,14 @@ REGIME_SLEEVES = {
 }
 
 
+# Katki kurulumlari beyan ettikleri rejimlere eklenir (yalniz SHADOW olarak degerlendirilir).
+for _rej, _adlar in CB.regime_sleeves().items():
+    if _adlar:
+        REGIME_SLEEVES.setdefault(_rej, [])
+        REGIME_SLEEVES[_rej] = list(REGIME_SLEEVES[_rej]) + list(_adlar)
+
 ALL_SLEEVES = sorted({k for v in REGIME_SLEEVES.values() for k in v} | {"failed_breakout", "news_overreaction"}
-                     | set(SV.ALL_VIDEO_SLEEVES))
+                     | set(SV.ALL_VIDEO_SLEEVES) | set(CB.all_sleeves()))
 
 
 def allowed_sleeves(regime_label: Optional[str]) -> List[str]:
@@ -263,12 +285,13 @@ def relative_strength_ranks(cross: Dict[str, Dict]) -> Dict[str, float]:
 
 # ---------------------------------------------------------------- sleeve tetikleyicileri
 def fire_sleeves(f: Dict, allowed: List[str], news: Optional[Dict], p, allow_short: bool = False,
-                 now_ts: Optional[float] = None) -> List[Dict]:
+                 now_ts: Optional[float] = None, df=None) -> List[Dict]:
     """Ek sleeve'ler (committee.triggers'ın yanında). Yalnız `allowed` listesindekiler."""
     out: List[Dict] = []
     if not f.get("ok"):
         return out
     out += SV.fire_video_sleeves(f, allowed, p, allow_short, now_ts)     # video kaynaklı kurulumlar
+    out += CB.fire_contrib_sleeves(f, allowed, p, allow_short, now_ts, df)  # topluluk katkıları (SHADOW)
     up = bool(f.get("bar_up"))
     rsi = float(f.get("rsi") or 50.0)
     atr = float(f.get("atr_pct") or 0.3)

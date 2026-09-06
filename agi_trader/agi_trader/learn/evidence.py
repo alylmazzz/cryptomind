@@ -58,6 +58,8 @@ ALANLAR = (
     "sp",          # stop %
     "hs",          # tutma süresi (sn)
     "lv",          # merdiven basamak sayısı
+    "ev",          # giriş anında VAADEDİLEN EV (plan hedefiyle) — kalibrasyon ölçümü için
+    "eva",         # giriş anında ULAŞILABİLİR hedefle EV — hangisi öngörüyor?
 )
 
 _MOD = {"FIXED_TARGET": "F", "PARTIAL_AND_RUN": "P", "DYNAMIC_PEAK": "D"}
@@ -94,6 +96,8 @@ def satir(trade: Dict, rejim: Optional[str] = None) -> Dict:
         "sp": round(float(trade.get("stop_pct") or 0.0), 4),
         "hs": int(float(trade.get("hold_sec") or 0)),
         "lv": int(trade.get("levels_hit") or 0),
+        "ev": (None if trade.get("ev_pct") is None else round(float(trade["ev_pct"]), 4)),
+        "eva": (None if trade.get("ev_achievable_pct") is None else round(float(trade["ev_achievable_pct"]), 4)),
     }
 
 

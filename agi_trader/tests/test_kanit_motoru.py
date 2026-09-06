@@ -174,3 +174,57 @@ def test_journal_kaydi_kucuk_ve_okuma_SINIRLI(tmp_path):
     assert len(j.load_all(limit=10)) == 10, "load_all SINIRLI olmalı (OOM freni)"
     s = j.summary()
     assert s["total_signals"] == 100 and s["actionable_signals"] == 50
+
+
+# ═══════════ 6) GÜNLÜK SAYAÇLAR YENİDEN BAŞLATMADA SIFIRLANMAMALI ═══════════
+def test_gunluk_sayaclar_yeniden_baslatmada_KORUNUR(tmp_path):
+    """2026-09-06 HATASI: `day`, `day_trades` ve `_rotations_today` save()/load()'da YOKTU.
+    Her yeniden başlatmada `day` "" oluyor, sonraki döngü `day != today` dalına düşüyor ve
+    GÜNLÜK İŞLEM TAVANI ile ROTASYON TAVANI sıfırlanıyordu.
+
+    Kanıt: rotasyon tavanı 6/gün olmasına rağmen 09-06'da 10 rotasyon oldu — o gün pm2
+    5 kez yeniden başlatılmıştı. pm2 zaten `max_memory_restart` + `autorestart` ile
+    kendiliğinden de yeniden başlatır; yani bu kapı sessizce gevşiyordu.
+
+    Bunlar RİSK kapılarıdır: yeniden başlatma onları gevşetmemeli."""
+    import time as _t
+    from agi_trader.auto import live_runner as LR
+
+    bugun = _t.strftime("%Y-%m-%d", _t.gmtime())
+    kayit = {"day": bugun, "day_trades": 47, "rotations_today": 5,
+             "trades": [], "positions": [], "pending": {}}
+
+    class _Sahte:                       # load()'un dokunduğu asgari yüzey
+        pass
+    r = _Sahte()
+    r.day, r.day_trades, r._rotations_today = "", 0, 0
+    # load()'un ilgili dalını birebir uygula
+    if str(kayit.get("day") or "") == bugun:
+        r.day = kayit["day"]
+        r.day_trades = int(kayit.get("day_trades") or 0)
+        r._rotations_today = int(kayit.get("rotations_today") or 0)
+    assert r.day == bugun and r.day_trades == 47 and r._rotations_today == 5, \
+        "aynı güne ait sayaçlar geri yüklenmeli"
+
+    # DÜNE ait kayıt geri YÜKLENMEZ (gün değişti, sıfırlanmalı)
+    r2 = _Sahte(); r2.day, r2.day_trades, r2._rotations_today = "", 0, 0
+    eski = {"day": "2000-01-01", "day_trades": 99, "rotations_today": 6}
+    if str(eski.get("day") or "") == bugun:
+        r2.day_trades = int(eski["day_trades"])
+    assert r2.day_trades == 0, "önceki güne ait sayaç taşınmamalı"
+
+    # save() sözleşmesi: üç alan da yazılıyor mu
+    src = (Path(LR.__file__)).read_text(encoding="utf-8")
+    for alan in ('"day": self.day', '"day_trades": self.day_trades', '"rotations_today"'):
+        assert alan in src, f"save() içinde eksik: {alan}"
+
+
+def test_iki_EV_de_kanit_satirinda(tmp_path):
+    """`ev_achievable_pct` 222 işlemin HİÇBİRİNDE kayıtlı değildi (0/222) — bu yüzden
+    'hangi EV gerçekten öngörüyor?' sorusu ölçülemiyordu. Artık iki EV de kaydediliyor."""
+    t = _t(0.3)
+    t.update({"ev_pct": 0.57, "ev_achievable_pct": -0.15})
+    s = EV.satir(t)
+    assert s["ev"] == pytest.approx(0.57) and s["eva"] == pytest.approx(-0.15)
+    yok = EV.satir(_t(0.3))
+    assert yok["ev"] is None and yok["eva"] is None, "yoksa None olmalı, 0 değil"

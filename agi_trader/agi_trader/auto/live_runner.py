@@ -1960,7 +1960,13 @@ class LiveRunner:
                                if k in ("reason", "level", "cont_prob", "mae_pct", "current_ev_pct",
                                         "intrabar", "levels_hit", "source")},
                "p_win": ((pos.decision or {}).get("ticket") or {}).get("p_win"),
-               "ev_pct": ((pos.decision or {}).get("ticket") or {}).get("ev_pct")}
+               # İKİ EV birden kaydedilir: `ev_pct` PLAN hedefiyle (iyimser — 85 işlemin 1'i
+               # o hedefe ulaştı), `ev_achievable_pct` ÖLÇÜLMÜŞ sleeve MFE medyanıyla.
+               # 222 işlemde `ev_achievable_pct` HİÇ kaydedilmemişti (0/222), bu yüzden
+               # "hangisi gerçekten öngörüyor?" sorusu cevaplanamıyordu. Artık cevaplanabilir.
+               "ev_pct": ((pos.decision or {}).get("ticket") or {}).get("ev_pct"),
+               "ev_achievable_pct": ((pos.decision or {}).get("ticket") or {}).get("ev_achievable_pct"),
+               "achievable_target_pct": ((pos.decision or {}).get("ticket") or {}).get("achievable_target_pct")}
         try:
             RE.record_exit(self.exit_state, pos.symbol, pos.direction, reason, net,
                            pos.peak_net_pct, now, self.rparams)
@@ -2431,6 +2437,14 @@ class LiveRunner:
                  "paper_cash": self.broker.paper_cash, "paper_holdings": self.broker.paper_holdings,
                  "last_decisions": self.last_decisions, "promoted": self._promoted, "ledger_hash": self._ledger_hash,
                  "exit_state": self.exit_state,
+                 # GÜNLÜK SAYAÇLAR — kalıcı olmalılar. Değillerdi ve her yeniden başlatma
+                 # (pm2 max_memory_restart / autorestart / elle deploy) `day`i "" yapıp
+                 # sonraki döngüde `day != today` dalına düşürüyor, böylece GÜNLÜK İŞLEM
+                 # TAVANI ve ROTASYON TAVANI SIFIRLANIYORDU. 2026-09-06 kanıtı: rotasyon
+                 # tavanı 6/gün olmasına rağmen o gün 10 rotasyon oldu (5 yeniden başlatma).
+                 # Bu bir risk kapısıdır; yeniden başlatma onu gevşetmemeli.
+                 "day": self.day, "day_trades": self.day_trades,
+                 "rotations_today": getattr(self, "_rotations_today", 0),
                  "created_ts": self.created_ts, "saved_ts": time.time()}
             tmp = self._path.with_suffix(".tmp")
             tmp.write_text(json.dumps(d, ensure_ascii=False, default=str), encoding="utf-8")
@@ -2494,6 +2508,12 @@ class LiveRunner:
             except Exception:
                 pass
             self.last_decisions = dict(d.get("last_decisions") or {})
+            # Günlük sayaçlar: yalnız AYNI güne aitse geri yüklenir (gün değiştiyse zaten sıfırlanmalı).
+            kayitli_gun = str(d.get("day") or "")
+            if kayitli_gun == time.strftime("%Y-%m-%d", time.gmtime()):
+                self.day = kayitli_gun
+                self.day_trades = int(d.get("day_trades") or 0)
+                self._rotations_today = int(d.get("rotations_today") or 0)
             self.exit_state = {k: v for k, v in (d.get("exit_state") or {}).items() if isinstance(v, dict)}
             if not self.exit_state and self.trades:
                 # v1 durumundan yükleniyorsa son çıkışları defterden kur — yeniden giriş

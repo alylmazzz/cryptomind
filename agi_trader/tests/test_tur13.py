@@ -274,14 +274,7 @@ def test_video_sleeveleri_golgede_dogar_canliya_cikamaz():
     Bu testin kilidi: birisi ölçüm yapmadan bunları PAPER'a alırsa test kırılır."""
     from agi_trader.strategies.lifecycle import Lifecycle, SHADOW_SLEEVES
     lc = Lifecycle()
-    # Katkı kurulumları da SHADOW doğar (2026-09-05), dolayısıyla liste artık kapalı bir
-    # eşitlik DEĞİL. Kilitlenen değişmez: SHADOW kümesi video kurulumlarının TAMAMINI içerir
-    # ve içindeki HİÇBİR sleeve paper'da bile emir veremez.
-    from agi_trader.strategies.lifecycle import CONTRIB_SLEEVES
-    assert set(SV.ALL_VIDEO_SLEEVES) <= set(SHADOW_SLEEVES)
-    assert set(SHADOW_SLEEVES) == set(SV.ALL_VIDEO_SLEEVES) | set(CONTRIB_SLEEVES)
-    for k in CONTRIB_SLEEVES:
-        assert lc.can_trade(k, "paper") is False, f"{k} katkısı paper'da emir veremez"
+    assert set(SHADOW_SLEEVES) == set(SV.ALL_VIDEO_SLEEVES)
     for k in SV.ALL_VIDEO_SLEEVES:
         assert lc.stage(k) == "SHADOW", k
         assert lc.can_trade(k, "paper") is False, f"{k} kanıtsız hâlde paper'da emir veremez"

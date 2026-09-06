@@ -42,22 +42,53 @@ def record_fill(symbol: str, side: str, qty: float, ref_price: float,
         "slippage_bps": round(slippage_bps(fill_price, ref_price, side), 3),
         "fill_ratio": round(float(qty) / float(requested_qty or qty or 1), 4),
     }
-    with open(_log_path(output_dir), "a", encoding="utf-8") as f:
-        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    p = _log_path(output_dir)
+    with open(p, "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, ensure_ascii=False, separators=(",", ":")) + "\n")
+    _rotate(p)
     return rec
 
 
-def load_fills(output_dir: str = "runs") -> List[Dict]:
+MAX_FILLS = 60_000          # ~430 B × 60k ≈ 26 MB tavan (kalibrasyon için ≥50 dolum yeter)
+_YAZIM = 0
+
+
+def _rotate(p: Path, her: int = 500) -> None:
+    """TCA kalibrasyonu SON dolumlara bakar; dosyanın sınırsız büyümesine gerek yok.
+    Tavan aşılınca en eskiler arşive TAŞINIR (silinmez). Kontrol her `her` yazımda bir —
+    her dolumda satır saymak, ölçüm yapayım derken CPU harcamak olurdu."""
+    global _YAZIM
+    _YAZIM += 1
+    if _YAZIM % her:
+        return
+    try:
+        with open(p, encoding="utf-8") as f:
+            satirlar = f.readlines()
+        if len(satirlar) <= MAX_FILLS:
+            return
+        tut = MAX_FILLS // 2
+        p.with_suffix(f".{int(time.time())}.arsiv.jsonl").write_text("".join(satirlar[:-tut]), encoding="utf-8")
+        tmp = p.with_suffix(".tmp")
+        tmp.write_text("".join(satirlar[-tut:]), encoding="utf-8")
+        tmp.replace(p)
+    except Exception:
+        pass
+
+
+def load_fills(output_dir: str = "runs", limit: int = 20_000) -> List[Dict]:
+    """SON `limit` dolum — sabit bellek (kalibrasyon zaten son dolumlara bakar)."""
     p = _log_path(output_dir)
     if not p.exists():
         return []
     out = []
+    from collections import deque
     with open(p, encoding="utf-8") as f:
-        for line in f:
-            try:
-                out.append(json.loads(line))
-            except Exception:
-                continue
+        kaynak = deque(f, maxlen=limit)
+    for line in kaynak:
+        try:
+            out.append(json.loads(line))
+        except Exception:
+            continue
     return out
 
 

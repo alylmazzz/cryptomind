@@ -127,11 +127,7 @@ def test_rejim_secici_zit_sleeveleri_kapatir():
     assert {"dip", "sweep_reversal", "catalyst", "failed_breakdown"} <= vol
     assert not ({"range_edge", "pullback", "vwap_reversion", "vwap_continuation"} & vol)
     from agi_trader.strategies import sleeves_video as _SV
-    from agi_trader.strategies import contrib as _CB
-    # Çekirdek dışındaki her sleeve ya video kaynaklı ya da topluluk katkısıdır; ikisi de
-    # SHADOW'dur. (Katkılar 2026-09-05'te eklendi — küme artık video'yla sınırlı değil.)
-    assert vol - {"dip", "sweep_reversal", "catalyst", "failed_breakdown"} \
-        <= set(_SV.ALL_VIDEO_SLEEVES) | set(_CB.all_sleeves())
+    assert vol - {"dip", "sweep_reversal", "catalyst", "failed_breakdown"} <= set(_SV.ALL_VIDEO_SLEEVES)
 
 
 def test_yeni_sleeveler_ateslenir():

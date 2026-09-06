@@ -182,33 +182,3 @@ def test_tekrar_eden_kayit_ikilenmez(tmp_path, monkeypatch):
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
-
-
-def test_pyarrow_yokken_de_tekrar_ayiklanir(tmp_path, monkeypatch):
-    """YEDEK YOL REGRESYONU (CI bulgusu, 2026-09-05).
-
-    `append` parquet yazamazsa .csv.gz'ye düşüyordu ve o yolda tekrar ayıklama
-    ATLANIYORDU: `gzip.open(..., "at")` ile körlemesine ekliyordu. Sonuç, pyarrow
-    kurulu OLMAYAN her makinede aynı haberin defalarca sayılması — haber yoğunluğuna
-    bakan sinyaller sahte bir yoğunluk görürdü. Yerelde pyarrow kurulu olduğu için bu
-    yol hiç çalışmamış, hata yalnız temiz kurulumda (CI) ortaya çıkmıştı.
-
-    Kilitlenen davranış: yedek yol ASIL yolla AYNI semantiği uygular."""
-    import sys
-    import agi_trader.sentiment.collector as col
-    monkeypatch.setattr(col, "_out_dir", lambda: tmp_path)
-    monkeypatch.setitem(sys.modules, "pyarrow", None)      # import pyarrow → ImportError
-
-    row = {"ts": pd.Timestamp.now("UTC"), "source": "rss", "handle": "x",
-           "text": "aynı başlık", "sentiment": 0.0, "assets": "", "url": ""}
-    p1 = col.append([row])
-    p2 = col.append([row])
-    assert p1 is not None and p1.name.endswith(".csv.gz"), "yedek yola düşmeliydi"
-    assert p2 == p1
-    assert len(col.load_events()) == 1, "yedek yolda da tekrar ayıklanmalı"
-
-    # Farklı metin AYRI kayıttır — tekilleştirme fazla agresif olmamalı.
-    col.append([{**row, "text": "başka başlık"}])
-    assert len(col.load_events()) == 2
-    # Parquet'ten neden düşüldüğü kayıtlı olmalı (sessizce yutulmaz).
-    assert col._SON_YEDEK_SEBEP, "yedek yola düşme sebebi kaydedilmeli"

@@ -26,7 +26,6 @@ import pandas as pd
 
 from . import roles as R
 from . import video_scalp as VS
-from . import contrib as _CB
 
 STRATEGY_ID = "committee"
 STRATEGY_NAME = "Komite Stratejisi (12 rol · CryptoMind verileriyle)"
@@ -471,13 +470,6 @@ def evaluate(ctx: Dict, p: CommitteeParams, learned: Optional[Dict] = None) -> V
     mode = ctx.get("mode", "paper")
     if lifecycle is not None:
         allowed = [k for k in allowed if lifecycle.can_trade(k, mode)]
-    else:
-        # FAIL-CLOSED (2026-09-06): yaşam döngüsü BAĞLANMAMIŞSA topluluk katkıları aday
-        # kümesine GİREMEZ. Katkılar tanım gereği SHADOW'dur; kapı yokken onları "izinli"
-        # saymak, dışarıdan gelen KANITSIZ kodun EV yarışmasına girip kanıtlanmış bir
-        # sleeve'in yerine geçmesi demekti. Bu, katkı hattı eklendiğinde altı çekirdek
-        # testi düşürerek ortaya çıktı — testler semptomdu, açık kapı asıl sorundu.
-        allowed = [k for k in allowed if k not in _CB.CONTRIB]
     rel = (learned.get("reliability") or {})
     paused = set(learned.get("paused_sleeves") or [])
     if paused:
@@ -494,7 +486,7 @@ def evaluate(ctx: Dict, p: CommitteeParams, learned: Optional[Dict] = None) -> V
         (triggers(fast, "pullback" if template == "mean_reversion" else "mean_reversion", p, allow_short, news) if fast.get("ok") else [])
     fired = [t for t in all_trig if t["kind"] in allowed]
     now_ts = float(ctx.get("now") or time.time())          # killzone etiketi (replay'de simülasyon saati)
-    fired += SF.fire_sleeves(fast, allowed, news, p, allow_short, now_ts, ctx.get("df"))
+    fired += SF.fire_sleeves(fast, allowed, news, p, allow_short, now_ts)
     # Kapanmış-bar sinyali: 30 sn'lik örnekleme devam eden barı görür; "yeşil bar" koşulu titreşir ve
     # kurulum kaçar. Son KAPANMIŞ bar tetiklediyse ve fiyat kaçmadıysa (≤ 0,5 ATR) sinyal geçerli sayılır.
     closed_note = ""
@@ -509,7 +501,7 @@ def evaluate(ctx: Dict, p: CommitteeParams, learned: Optional[Dict] = None) -> V
                     seen = {t["kind"] for t in fired}
                     extra = [t for t in triggers(fc, template, p, allow_short, news) +
                              triggers(fc, "pullback" if template == "mean_reversion" else "mean_reversion", p, allow_short, news) +
-                             SF.fire_sleeves(fc, allowed, news, p, allow_short, now_ts, dfc)
+                             SF.fire_sleeves(fc, allowed, news, p, allow_short, now_ts)
                              if t["kind"] in allowed and t["kind"] not in seen]
                     if extra:
                         for t in extra:
@@ -526,8 +518,7 @@ def evaluate(ctx: Dict, p: CommitteeParams, learned: Optional[Dict] = None) -> V
     _shadow = set()
     if lifecycle is not None:
         _shadow = {k for k in SF.ALL_SLEEVES if not lifecycle.can_trade(k, mode)}
-    for t in all_trig + SF.fire_sleeves(fast, [k for k in SF.ALL_SLEEVES if k not in allowed],
-                                        news, p, allow_short, now_ts, ctx.get("df")):
+    for t in all_trig + SF.fire_sleeves(fast, [k for k in SF.ALL_SLEEVES if k not in allowed], news, p, allow_short, now_ts):
         if t["kind"] not in allowed and t["kind"] not in seen_k and t["kind"] not in {x["kind"] for x in silenced}:
             silenced.append({"kind": t["kind"], "direction": t["direction"], "note": t.get("note"),
                              "gate": ("SLEEVE_DURAKLATILDI" if t["kind"] in paused

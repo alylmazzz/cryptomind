@@ -37,6 +37,7 @@ from ..execution import tca as TCA
 from ..execution import venue_router as VR
 from ..learn.allocator import MetaAllocator
 from ..learn.challenger import Challenger
+from ..learn import evidence as EV
 from ..learn.lessons import LessonEngine
 from ..learn.missed import MissedEngine
 from ..notify.alerts import AlertBus
@@ -96,7 +97,11 @@ def _tracemalloc_top(n: int = 10):
 COMPARE_VENUES = ["mexc", "binance", "bybit", "okx"]
 VENUE_COMPARE = os.environ.get("CRYPTOMIND_VENUE_COMPARE", "0") == "1"
 CVD_ENABLED = os.environ.get("CRYPTOMIND_CVD", "1") == "1"       # Top-K adayları için son işlemler (taker akışı)
-TRADES_KEEP = 3000                      # kalıcı işlem listesi (panel sayfalama + kanıt istatistikleri; 500 idi → ilk işlemler kayboluyordu)
+TRADES_KEEP = 800                       # SICAK liste: panel sayfalama + bellek içi istatistik.
+                                        # 3000 idi. Durum dosyası HER DÖNGÜDE (~25 sn) baştan yazılır;
+                                        # 3000 × 1.024 B ≈ 3 MB/döngü ≈ 10 GB/gün gereksiz yazma demekti.
+                                        # KALICI ve EKSİKSİZ kayıt artık `evidence.jsonl` (salt-ekleme,
+                                        # ~130 B/işlem) — hiçbir kanıt kaybolmuyor, yalnız sıcak liste kısaldı.
 EQUITY_HISTORY_MAX = 40000              # tam özsermaye geçmişi nokta tavanı (5 dk kova ≈ 140 gün)
 EQUITY_FULL_RES_SEC = 6 * 3600          # bu süre tam çözünürlük (30 sn), öncesi kovaya indirgenir
 EQUITY_BUCKET_SEC = 300
@@ -1099,6 +1104,32 @@ class LiveRunner:
         except Exception:
             pass
 
+    def _evidence_report(self, ttl: float = 300.0) -> Dict:
+        """Kanıt durumu — hangi sleeve kanıta ne kadar yakın. TTL'li önbellek:
+        kanıt defteri akışla okunur (bellek sabit) ama her panel isteğinde okumak gereksiz."""
+        now = time.time()
+        hit = getattr(self, "_ev_cache", None)
+        if hit and now - hit[0] < ttl:
+            return hit[1]
+        try:
+            o = EV.ozet(self.output_dir, tag=f"{self.user_id}_{self.cfg.exchange_id}", min_n=3)
+            MIN_N = 8      # n<8'de t anlamsız — sahte kanıt üretmemek için
+            o["verdikt"] = {
+                "kanitli_kar": [k for k, v in o.get("sleeve", {}).items()
+                                if v["n"] >= MIN_N and v["t"] >= 2.0 and v["ort_pct"] > 0],
+                "kanitli_zarar": [k for k, v in o.get("sleeve", {}).items()
+                                  if v["n"] >= MIN_N and v["t"] <= -2.0],
+                "kanita_yakin": sorted(
+                    ({"sleeve": k, "n": v["n"], "t": v["t"], "kalan": v["kalan_islem_t2"]}
+                     for k, v in o.get("sleeve", {}).items()
+                     if v["n"] >= 5 and v["ort_pct"] > 0 and v.get("kalan_islem_t2") is not None),
+                    key=lambda x: x["kalan"])[:3],
+            }
+        except Exception as e:
+            o = {"hata": type(e).__name__}
+        self._ev_cache = (now, o)
+        return o
+
     def _tca_report(self, ttl: float = 120.0) -> Dict:
         """ÖLÇÜLEN yürütme maliyeti vs varsayılan. fills.jsonl büyüdüğü için TTL'li önbellek."""
         now = time.time()
@@ -1877,7 +1908,7 @@ class LiveRunner:
                "mode": pos.mode, "strategy": self.cfg.strategy, "order_type": pos.order_type,
                "trigger": pos.trigger, "sleeve": pos.sleeve, "template": pos.template, "exit_mode": pos.exit_mode,
                "target": pos.target, "partial_done": pos.partial_done, "horizon_sec": float(pos.time_stop_sec or 3600),
-               "levels_hit": pos.levels_hit, "ladder": pos.ladder, "locked_net_pct": pos.locked_net_pct,
+               "levels_hit": pos.levels_hit, "locked_net_pct": pos.locked_net_pct,
                "reentry_count": pos.reentry_count, "realized_partial": round(pos.realized, 4),
                # ÇIKIŞ A/B'si için gereken alanlar. Bunlar defterde YOKTU; 200 işlemlik
                # canlı kayıttan çıkış motorunu yeniden oynatmak bu yüzden mümkün değildi
@@ -1885,7 +1916,13 @@ class LiveRunner:
                "stop_pct": round(pos.stop_pct, 4), "target_pct": round(pos.target_pct, 4),
                "cost_pct_roundtrip": round(pos.cost_pct_roundtrip, 4), "atr_pct": round(pos.atr_pct, 4),
                "entry_stop_price": round(pos.entry * (1 - pos.sign() * pos.stop_pct / 100.0), 10),
-               "fee_drag": (round(fees / gross, 3) if gross > 0 else None), "exit_detail": extra or {},
+               "fee_drag": (round(fees / gross, 3) if gross > 0 else None),
+               # exit_detail tam hâliyle kayıt başına 138 B tutuyordu (defterin %13,5'i) ve
+               # içindeki alanların çoğu başka sütunlarda zaten var. Yalnız TEŞHİS için
+               # gerekli olanlar saklanır.
+               "exit_detail": {k: v for k, v in (extra or {}).items()
+                               if k in ("reason", "level", "cont_prob", "mae_pct", "current_ev_pct",
+                                        "intrabar", "levels_hit", "source")},
                "p_win": ((pos.decision or {}).get("ticket") or {}).get("p_win"),
                "ev_pct": ((pos.decision or {}).get("ticket") or {}).get("ev_pct")}
         try:
@@ -1893,6 +1930,10 @@ class LiveRunner:
                            pos.peak_net_pct, now, self.rparams)
         except Exception:
             pass
+        # KANIT DEFTERİ — salt-ekleme, ~130 B. Kanıt kapılarının ihtiyaç duyduğu yeterli
+        # istatistikler buradan tek geçişte çıkar; sıcak durum dosyasının büyümesine gerek yok.
+        EV.kaydet(rec, self.output_dir, tag=f"{self.user_id}_{self.cfg.exchange_id}",
+                  rejim=self._regime_of(pos.decision))
         rec["prev_hash"] = self._ledger_hash
         rec["hash"] = _rec_hash(rec, self._ledger_hash)
         self._ledger_hash = rec["hash"]
@@ -2311,6 +2352,7 @@ class LiveRunner:
                                                "net_pnl": v.get("net_pnl"), "count": v.get("count"), "ts": v.get("ts")}
                                            for k, v in list(self.exit_state.items())[-20:]}},
                 "tca": self._tca_report(),
+                "kanit": self._evidence_report(),
                 "risk_mode": self.risk, "cash_mode": self.cash_mode, "portfolio_mode": self.portfolio,
                 "resource": self.resource, "best_action": self.best_action(),
                 "top_opportunities": self.top_opportunities(3),
@@ -2395,9 +2437,23 @@ class LiveRunner:
             except Exception:
                 pass
             try:
-                na = self.allocator.backfill(self.trades)
+                # Sıcak liste TRADES_KEEP ile sınırlı; KALICI kanıt `evidence.jsonl`'de.
+                # Geri doldurma önce oradan yapılır (akış okuma — bellek sabit), böylece
+                # sıcak listeyi kısaltmak hiçbir kanıtı kaybettirmez.
+                kaynak = self.trades
+                try:
+                    ev = [{"sleeve": r.get("slv"), "regime": r.get("rej"), "win": bool(r.get("w")),
+                           "net_pnl": r.get("nu"), "net_pct_realized": r.get("np"),
+                           "closed_ts": r.get("ts")}
+                          for r in EV.oku(self.output_dir, tag=f"{self.user_id}_{self.cfg.exchange_id}")]
+                    if len(ev) > len(kaynak):
+                        kaynak = ev
+                except Exception:
+                    pass
+                na = self.allocator.backfill(kaynak)
                 if na:
-                    self._log("system", f"🧾 sleeve kanıt geçmişi kapanan işlemlerden kuruldu: {na} kayıt")
+                    self._log("system", f"🧾 sleeve kanıt geçmişi kuruldu: {na} kayıt "
+                                        f"({'kanıt defteri' if kaynak is not self.trades else 'sıcak liste'})")
             except Exception:
                 pass
             self.last_decisions = dict(d.get("last_decisions") or {})

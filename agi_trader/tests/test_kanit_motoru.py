@@ -354,3 +354,70 @@ def test_calib_map_bozuk_dosyada_BOS_doner(tmp_path):
     (tmp_path / "live" / "ev_calib.json").write_text(
         json.dumps({"hazir": False, "karar": "ev_pct DAHA İYİ"}), encoding="utf-8")
     assert LR.LiveRunner._calib_map(_R(), ttl=0) == {}, "hazir=False iken karar UYGULANMAZ"
+
+
+# ═══════════ 9) YÜRÜTME A/B — karıştırıcıyı çözen ekleme ═══════════
+class _SahteAB:
+    """`_exec_ab`'yi izole sınamak için asgari yüzey."""
+    def __init__(self, tmp, sayim, pay=0.15, min_n=12, acik=True):
+        self.output_dir = str(tmp); self.user_id = 0; self.cycle = 7
+        self.cfg = type("C", (), {"exchange_id": "x"})()
+        self.params = type("P", (), {"exec_ab_enabled": acik, "exec_ab_pay": pay,
+                                     "exec_ab_min_n": min_n})()
+        # kanıt defterini istenen maker/taker dağılımıyla doldur
+        for slv, (m, t) in sayim.items():
+            for i in range(m):
+                EV.kaydet(_t(0.1, sleeve=slv, ts=1_000_000 + i, order_type="maker"),
+                          self.output_dir, tag="0_x")
+            for i in range(t):
+                EV.kaydet(_t(0.1, sleeve=slv, ts=1_100_000 + i, order_type="taker"),
+                          self.output_dir, tag="0_x")
+
+
+def _ab(tmp, sayim, sleeve, tip, sym="BTC/USDT", **kw):
+    from agi_trader.auto import live_runner as LR
+    r = _SahteAB(tmp, sayim, **kw)
+    return LR.LiveRunner._exec_ab(r, sleeve, tip, sym, 0.0)
+
+
+def test_AB_yeterli_orneklem_varsa_DURUR(tmp_path):
+    """Kıyas artık mümkünse A/B'ye devam etmek boşuna maliyet olur."""
+    tip, notu = _ab(tmp_path, {"dip": (15, 15)}, "dip", "maker", min_n=12)
+    assert tip == "maker" and notu == "", "her iki tipte 15'er örneklem var → A/B dursun"
+
+
+def test_AB_tek_tip_sleevede_AZINLIGA_yonlendirir(tmp_path):
+    """dip: 20 maker / 0 taker → azınlık taker. Bazı girişler taker'a çevrilmeli."""
+    sayim = {"dip": (20, 0)}
+    sonuclar = [_ab(tmp_path, sayim, "dip", "maker", sym=f"S{i}/USDT", pay=1.0)
+                for i in range(5)]
+    assert all(t == "taker" for t, _ in sonuclar), "pay=1,0 iken hepsi azınlığa gitmeli"
+    assert all("A/B" in n for _, n in sonuclar)
+
+
+def test_AB_pay_SIFIRSA_hicbir_sey_degismez(tmp_path):
+    tip, notu = _ab(tmp_path, {"dip": (20, 0)}, "dip", "maker", pay=0.0)
+    assert tip == "maker" and notu == ""
+
+
+def test_AB_kapaliyken_dokunmaz(tmp_path):
+    tip, notu = _ab(tmp_path, {"dip": (20, 0)}, "dip", "maker", pay=1.0, acik=False)
+    assert tip == "maker" and notu == ""
+
+
+def test_AB_zaten_azinlik_tipteyse_dokunmaz(tmp_path):
+    """Giriş zaten azınlık tipe gidiyorsa yönlendirmeye gerek yok."""
+    tip, notu = _ab(tmp_path, {"dip": (20, 0)}, "dip", "taker", pay=1.0)
+    assert tip == "taker" and notu == ""
+
+
+def test_AB_DETERMINISTIK(tmp_path):
+    """Rastgelelik testleri kırar ve tekrar üretilemez kılar — seçim hash tabanlı."""
+    a = _ab(tmp_path, {"dip": (20, 0)}, "dip", "maker", sym="ETH/USDT", pay=0.5)
+    b = _ab(tmp_path, {"dip": (20, 0)}, "dip", "maker", sym="ETH/USDT", pay=0.5)
+    assert a == b, "aynı girdide aynı sonuç"
+
+
+def test_AB_sleeve_YOKSA_dokunmaz(tmp_path):
+    tip, notu = _ab(tmp_path, {"dip": (20, 0)}, "", "maker", pay=1.0)
+    assert tip == "maker" and notu == ""

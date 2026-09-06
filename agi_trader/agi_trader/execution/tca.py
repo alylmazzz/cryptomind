@@ -106,7 +106,11 @@ def tca_report(fills: Optional[List[Dict]] = None,
 
     sl = np.array([f.get("slippage_bps", 0.0) for f in fills], dtype=float)
     fr = np.array([f.get("fill_ratio", 1.0) for f in fills], dtype=float)
-    maker = np.array([1.0 if "limit" in str(f.get("order_type", "")) else 0.0
+    # HATA DÜZELTİLDİ (2026-09-06): yalnız "limit" aranıyordu; koşucu ise "maker"/"taker"
+    # gönderiyor. Sonuç: `maker_share` HER ZAMAN 0,0 çıkıyordu — yani maker/taker maliyet
+    # öğrenmesi tamamen KÖRDÜ. Ölçmediğini bildiğini sanmak, ölçmemekten kötüdür.
+    maker = np.array([1.0 if any(k in str(f.get("order_type", "")).lower()
+                                 for k in ("maker", "limit")) else 0.0
                       for f in fills])
     notional = np.array([abs(f.get("qty", 0)) * abs(f.get("fill_price", 0))
                          for f in fills], dtype=float)

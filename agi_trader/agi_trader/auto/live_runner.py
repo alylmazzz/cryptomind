@@ -554,7 +554,33 @@ class LiveRunner:
             return {}
 
     def _cost_pct_est(self) -> float:
+        """Model maliyeti (gidiş-dönüş %). DEĞİŞTİRİLMEDİ — ama artık ölçümle KIYASLANIYOR.
+
+        2026-09-06 TCA ölçümü: gerçekleşen tek-yön 3,69 bps (kayma −0,64 bps, yani LEHTE),
+        gidiş-dönüş ≈ 7,4 bps. Model ise (2×5 + 4)/100 = %0,14 = 14 bps varsayıyor —
+        yaklaşık 1,9 KAT fazla.
+
+        Bunu ölçüme çekmedim, BİLEREK. Şişkin maliyet tahmini şu an KORUYUCU: giriş
+        kapılarını sıkı, rotasyon geçiş eşiğini yüksek tutuyor. Brüt kenar ≈ 0 olan bir
+        sistemde tahmini "doğrultmak" daha ÇOK işlem açar ve sızıntıyı büyütür.
+        Gevşetme, ancak brüt kenar kanıtlandıktan sonra ve ölçülerek yapılmalı.
+        Fark `_cost_gap()` ile panelde açıkça gösterilir; gizli kalmaz."""
         return round((2.0 * self.venue.taker_bps + 4.0) / 100.0, 4)
+
+    def _cost_gap(self) -> Dict:
+        """Model maliyeti ile ÖLÇÜLEN maliyet arasındaki fark — panelde görünür olsun."""
+        r = self._tca_report()
+        model = self._cost_pct_est()
+        if not r.get("available") or (r.get("n_fills") or 0) < 30:
+            return {"model_pct": model, "olculen_pct": None,
+                    "not": f"ölçüm için ≥30 dolum gerekli ({r.get('n_fills', 0)} var)"}
+        olculen = round(2.0 * float(r["realized_cost_bps"]) / 100.0, 4)
+        return {"model_pct": model, "olculen_pct": olculen,
+                "kat": round(model / max(1e-9, olculen), 2),
+                "maker_payi": r.get("maker_share"), "kayma_bps": r.get("mean_slippage_bps"),
+                "not": ("model ölçümden ŞİŞİK — bilerek korunuyor (brüt kenar ≈ 0 iken "
+                        "gevşetmek sızıntıyı büyütür)" if olculen < model else
+                        "model ölçümün ALTINDA — gerçek maliyet varsayımdan yüksek, kapılar gevşek")}
 
     def _proxy_trigger(self, sym: str) -> Optional[Dict]:
         """Değerlendirilmeyen adaylar için ucuz tetikleyici vekili (kör-nokta gölgesi)."""
@@ -1493,6 +1519,19 @@ class LiveRunner:
         proof_maker = (verdict.order_type == "maker" and opt.get("order_type") == "taker")
         if proof_maker and wait_bars == 0:
             wait_bars = 1
+        # YÜRÜTME A/B — sleeve içinde maker/taker kıyası mümkün olsun diye küçük bir pay
+        # azınlık tipe yönlendirilir. Kanıt kapısını (`proof_maker`) EZMEZ: kanıtlanmamış
+        # sleeve zaten taker giremez; A/B yalnız diğer yöne (maker→taker) veya kanıt
+        # kapısının devrede olmadığı durumda çalışır.
+        ab_tip, ab_not = self._exec_ab(verdict.trigger or "", verdict.order_type, sym, now)
+        if ab_not and not (ab_tip == "taker" and proof_maker):
+            if ab_tip == "taker":
+                wait_bars = 0
+            else:
+                wait_bars = max(1, wait_bars)
+            verdict.order_type = ab_tip
+            trace["notes"].append(ab_not)
+            trace["exec_ab"] = ab_not
         if verdict.order_type == "maker" and wait_bars > 0:
             s_ = 1.0 if plan["direction"] == "LONG" else -1.0
             if opt.get("order_type") == "maker":
@@ -1868,6 +1907,42 @@ class LiveRunner:
                 pos.cont_prob = float(p_)
         except Exception:
             pass
+
+    def _exec_ab(self, sleeve: str, order_type: str, sym: str, now: float) -> tuple:
+        """YÜRÜTME A/B — sleeve İÇİNDE maker/taker kıyasını mümkün kıl.
+
+        Sorun (ölçüldü): 8 sleeve'in 6'sı tek emir tipi kullanıyor (%90-100). Emir tipi
+        sleeve ile TAM KARIŞIK olduğu için "maker mı taker mı?" sorusu cevaplanamıyor —
+        ham veride maker brütü 25 bps kötü görünüyor ama bu, maker kullanan sleeve'lerin
+        kendisinin kötü olmasından da kaynaklanabilir.
+
+        Çözüm: o sleeve'de AZINLIK tipin örneklemi `exec_ab_min_n`'e ulaşana kadar
+        girişlerin `exec_ab_pay` kadarı diğer tiple açılır. Seçim DETERMİNİSTİK
+        (parite+döngü hash'i) — rastgelelik testleri kırar ve tekrar üretilemez olurdu.
+        Yeterli örneklem birikince A/B kendiliğinden durur."""
+        p = self.params
+        if not getattr(p, "exec_ab_enabled", False) or not sleeve:
+            return order_type, ""
+        try:
+            m = t = 0
+            for r in EV.oku(self.output_dir, tag=f"{self.user_id}_{self.cfg.exchange_id}"):
+                if r.get("slv") != sleeve:
+                    continue
+                if r.get("ot") == "m":
+                    m += 1
+                elif r.get("ot") == "t":
+                    t += 1
+            if min(m, t) >= int(p.exec_ab_min_n):
+                return order_type, ""                       # kıyas artık mümkün — A/B dursun
+            azinlik = "maker" if m <= t else "taker"
+            if azinlik == order_type:
+                return order_type, ""                       # zaten azınlık tipe gidiyor
+            h = int(hashlib.sha1(f"{sym}{self.cycle // 3}".encode()).hexdigest()[:8], 16)
+            if (h % 1000) / 1000.0 < float(p.exec_ab_pay):
+                return azinlik, f"A/B: {sleeve} için {azinlik} örneklemi {min(m, t)}/{p.exec_ab_min_n}"
+        except Exception:
+            pass
+        return order_type, ""
 
     def _rotation_ev(self, ticket: Optional[Dict]) -> tuple:
         """Rotasyon kapısının kullanacağı EV — ÖLÇÜME bağlı seçilir.
@@ -2493,7 +2568,7 @@ class LiveRunner:
                             "last_exits": {k: {"reason": v.get("reason"), "direction": v.get("direction"),
                                                "net_pnl": v.get("net_pnl"), "count": v.get("count"), "ts": v.get("ts")}
                                            for k, v in list(self.exit_state.items())[-20:]}},
-                "tca": self._tca_report(),
+                "tca": self._tca_report(), "maliyet_farki": self._cost_gap(),
                 "kanit": self._evidence_report(),
                 "haber_etki": self._news_impact_report(),
                 "ev_kalibrasyon": {**self._ev_calib_report(), "rotasyon_kaynagi": self._rotation_ev(

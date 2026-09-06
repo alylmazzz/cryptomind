@@ -81,6 +81,19 @@ class CommitteeParams(VS.ScalpParams):
     session_t_block: float = -2.5
     # Fişte ULAŞILABİLİR hedef: sabit hedefe 85 işlemin 1'i ulaştı; EV ölçülmüş MFE ile de yazılır.
     achievable_target: bool = True
+    # ── YÜRÜTME A/B (2026-09-06) ────────────────────────────────────────────────
+    # ÖLÇÜM: 8 sleeve'in 6'sı TEK emir tipi kullanıyor (%90-100) → emir tipi ile sleeve
+    # TAM KARIŞIK. Bu yüzden "maker mı taker mı daha iyi?" sorusu CEVAPLANAMIYOR:
+    # ham veride maker brütü 25 bps kötü görünüyor ama bu, maker'ı kullanan sleeve'lerin
+    # (dip/dip_moderate) kötü olmasından da kaynaklanabilir. Aynı karıştırıcıya bu
+    # oturumda iki kez daha düşüldü (çıkış modu × sleeve).
+    # ÇÖZÜM: tek tip kullanan sleeve'lerde girişlerin küçük bir payı DİĞER tiple açılır.
+    # Böylece sleeve İÇİNDE kıyas mümkün olur. Bedeli sınırlıdır ve hesaplanmıştır:
+    # pay × tip farkı ≈ 0,15 × 25 bps ≈ 3,75 bps, ~89 işlem/günde ≈ 0,03 $/gün.
+    # 25 bps'lik bir kararı çözmek için ödenecek makul bir bilgi bedeli.
+    exec_ab_enabled: bool = True
+    exec_ab_pay: float = 0.15            # tek tip sleeve'lerde diğer tipe ayrılan pay
+    exec_ab_min_n: int = 12              # bu kadar işlem birikene kadar A/B sürer
 
     def validated(self) -> "CommitteeParams":
         super().validated()
@@ -106,6 +119,8 @@ class CommitteeParams(VS.ScalpParams):
         self.rsi_max_moderate = float(min(55.0, max(self.rsi_max, self.rsi_max_moderate)))
         self.breakout_vol_ratio = float(min(5.0, max(1.0, self.breakout_vol_ratio)))
         self.catalyst_min_score = float(min(1.0, max(0.2, self.catalyst_min_score)))
+        self.exec_ab_pay = float(min(0.4, max(0.0, self.exec_ab_pay)))
+        self.exec_ab_min_n = int(min(200, max(4, self.exec_ab_min_n)))
         return self
 
     @classmethod

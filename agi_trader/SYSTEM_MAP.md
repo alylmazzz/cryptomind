@@ -42,6 +42,10 @@ Durum sözlüğü: **EXISTS** çalışıyor ve testli · **PARTIAL** kısmen · 
 | Parite keşfi | `scripts/cm_pair_scout.py` | EXISTS | ölçülmüş ek evren (bugün 4 uygun) |
 | WebSocket / event-driven veri | — | MISSING | REST + TTL |
 | Emir defteri snapshot+delta senkronu | — | MISSING | REST üst defter |
-| TCA (fill sonrası maliyet ayrıştırma) | `execution/tca.py` | UNVERIFIED | koşucuya bağlı değil |
+| TCA (fill sonrası maliyet ayrıştırma) | `execution/tca.py` | **BAĞLANDI** (2026-09-06) | her dolum (giriş/kısmi/çıkış) `record_fill` ile yazılır; `full_state()["tca"]` ölçülen kayma, maker payı ve ödenen maliyeti varsayımla kıyaslar |
+| Kâr kilidi (tepe×retain ratchet) | `strategies/exit_engine.py` | **ÖLÇÜLDÜ ✓** (2026-09-06) | 37.185–37.905 eşleştirilmiş yolda +0,0069…+0,0088 puan/işlem, t 6,5–8,8; bkz. `KAR_KORUMA_V2.md` |
+| Kâr merdiveni T1…T6 | `strategies/exit_engine.py` (`ladder_enabled`) | **ÖLÇÜLDÜ, REDDEDİLDİ** | −0,0015 puan/işlem, t −4,79 → varsayılan KAPALI; kod ve tezgâh duruyor |
+| Yeniden giriş kapısı | `strategies/reentry.py` | EXISTS (2026-09-06) | zarar sonrası soğuma + beklenen salınım ≥ 2×maliyet; engellediği adaylar kayıtlı |
+| Çıkış motoru tezgâhı (A/B) | `scripts/cm_exit_bench.py`, `cm_exit_ab.py` | EXISTS | aynı yol + aynı giriş, eşleştirilmiş fark testi |
 | Vadeli/short yürütme | — | MISSING (spot) | short sleeve'ler yalnız vadeli izniyle |
 | Eski `agi_trader/server/app.py` panosu | `server/app.py` | DEPRECATED | ana panel public_api |

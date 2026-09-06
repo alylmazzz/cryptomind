@@ -98,7 +98,8 @@ def test_kalan_ev_ve_rotasyon(tmp_path):
     for s in syms:
         FakeExchange.path[s] = _path(dip_last=12, dip_pct=3.0); FakeExchange.path[s][-1] = FakeExchange.path[s][-2] * 1.002
     reg, r = _runner(tmp_path, syms, max_open=1, params={**SIM.default_config("mexc").params, "maker_wait_bars": 0, "min_hold_sec": 0},
-                     exit={**SIM.default_config("mexc").exit, "edge_decay_enabled": False})   # edge-decay rotasyondan önce kapatmasın
+                     exit={**SIM.default_config("mexc").exit, "edge_decay_enabled": False},   # edge-decay rotasyondan önce kapatmasın
+                     reentry={"enabled": False})   # bu test ROTASYON mekaniğini ölçer; soğuma kapısı ayrı test edilir
     r._update_portfolio_mode = lambda *a, **k: None
     r.run_cycle(now=1_000_000.0)
     assert len(r.positions) == 1

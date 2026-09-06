@@ -251,10 +251,20 @@ def test_firsat_kapisi_net_esik_veto():
     assert d.opportunity and d.opportunity["action"] == "NO_TRADE"
 
 
-def test_firsat_kapisi_derinlik_varsayimini_beyan_eder():
+def test_firsat_kapisi_olculmemis_derinlikte_VETO_eder():
+    """Eskiden derinlik ölçülmediğinde notional'ın 50 katı VARSAYILIP geçiriliyordu:
+    veri kaybı, en cömert likidite varsayımına dönüşüyordu. Artık veto."""
     cfg = DC.ChainConfig(use_consensus=False, use_qualification=False, use_regime=False)
     d = DC.decide(_inp(bid_depth_usd=0.0, ask_depth_usd=0.0), cfg)
-    assert d.allowed and d.opportunity["depth_assumed"] is True
+    assert not d.allowed and any("DERİNLİK" in v for v in d.vetoes)
+    # ölçülmüş derinlikte kapı normal çalışır
+    d2 = DC.decide(_inp(bid_depth_usd=500_000.0, ask_depth_usd=500_000.0), cfg)
+    assert d2.allowed and d2.opportunity["depth_assumed"] is False
+    # geriye dönük mod: veto kapatılırsa eski davranış (beyan et, geçir)
+    cfg2 = DC.ChainConfig(use_consensus=False, use_qualification=False, use_regime=False,
+                          veto_on_assumed_depth=False)
+    d3 = DC.decide(_inp(bid_depth_usd=0.0, ask_depth_usd=0.0), cfg2)
+    assert d3.allowed and d3.opportunity["depth_assumed"] is True
 
 
 def test_rejim_trende_karsi_yariya_indirir():
@@ -300,21 +310,39 @@ def test_kosucu_dip_gorunce_paper_pozisyon_acar(tmp_path):
     assert r.last_decisions["BTC/USDT"]["result"].startswith("AÇILDI")
 
 
-def test_kosucu_tp_ile_kapatir_komisyon_dahil(tmp_path):
-    reg, r = _runner(tmp_path)
+def test_kosucu_merdivenle_kar_alir_ve_kilitler_komisyon_dahil(tmp_path):
+    """v2: hedefin üstüne çıkan koşucuda stop KÂR KİLİDİNE çekilir (tepe × retain),
+    başabaşa DEĞİL. Fiyat kilide geri gelse bile pozisyon ARTIDA kapanır — v1'de aynı
+    senaryo `stop = entry` ile eksiye dönebiliyordu (giriş fiyatı net başabaş değildir).
+    Merdiven varsayılan KAPALI (ölçüldü, reddedildi); burada açılıp basamağı da sınanır."""
+    reg, r = _runner(tmp_path, exit={**LR.XE.ExitParams().__dict__, "ladder_enabled": True})
     FakeExchange.path["BTC/USDT"] = _path(dip_last=12, dip_pct=3.0)
     r.run_cycle(now=1_000_000.0)
     pos = r.positions["BTC/USDT"]
+    entry = pos.entry
     # fiyat hedefin üstüne, tutma 20 dk (> asgari 15)
     FakeExchange.path["BTC/USDT"] = _path() + [pos.target * 1.01] * 3
     r.run_cycle(now=1_000_000.0 + 20 * 60)
-    assert not r.positions and len(r.trades) == 1
+    pos = r.positions.get("BTC/USDT")
+    assert pos is not None and pos.partial_done, "kısmi kâr alınmalı"
+    assert pos.realized > 0 and pos.amount < pos.amount_initial
+    assert pos.be_locked and pos.lock_price is not None
+    # KİLİT NET BAŞABAŞIN ÜSTÜNDE olmalı (giriş fiyatı net başabaş değildir)
+    assert (pos.lock_price - entry) * pos.sign() > 0
+    assert pos.locked_net_pct > 0
+    lock = float(pos.lock_price)
+    # fiyat kilide geri gelirse pozisyon ARTIDA kapanır (koşucu aynı döngüde yeniden
+    # girebilir — burada bakılan, KAPANAN işlemin artıda olması)
+    FakeExchange.path["BTC/USDT"] = _path() + [lock * 0.999] * 3
+    r.run_cycle(now=1_000_000.0 + 40 * 60)
+    assert len(r.trades) == 1
     t = r.trades[0]
-    assert t["reason"] == "TP" and t["net_pnl"] == pytest.approx(t["gross_pnl"] - t["fees"])
-    assert t["fees"] > 0 and t["net_pnl"] > 0 and t["hold_bucket"] == "15-60 dk"
+    assert t["net_pnl"] == pytest.approx(t["gross_pnl"] - t["fees"])
+    assert t["fees"] > 0 and t["net_pnl"] > 0, "kâr kilidi ARTIDA kapatmalı"
+    assert t["levels_hit"] >= 1
     st = r.stats()
-    assert st["fees_paid"] == pytest.approx(t["fees"], abs=0.01) and st["closed_trades"] == 1
-    assert st["hold_buckets"]["15-60 dk"]["n"] == 1
+    # fees_paid AÇIK pozisyonların giriş komisyonunu da içerebilir (yeniden giriş olduysa)
+    assert st["closed_trades"] == 1 and st["fees_paid"] >= t["fees"] - 0.01
     assert len(r.paper_history) == 1
 
 

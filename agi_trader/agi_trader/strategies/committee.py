@@ -645,7 +645,8 @@ def evaluate(ctx: Dict, p: CommitteeParams, learned: Optional[Dict] = None) -> V
     # 7) veto rolleri
     ce = R.role_cost_execution(plan["target_pct"], cost_taker, cost_maker, spread,
                                float(book.get("bid_depth_usd") or 0.0), float(book.get("ask_depth_usd") or 0.0),
-                               notional, p.min_gross_to_cost, p_fill, p.max_spread_bps)
+                               notional, p.min_gross_to_cost, p_fill, p.max_spread_bps,
+                               book_ok=bool(book.get("ok", True)), book_stale=bool(book.get("stale", False)))
     rk = R.role_risk(sym, direction, ctx.get("open_positions") or {}, slow.get("corr"),
                      int(ctx.get("max_open", 3)), float(ctx.get("exposure_room", 0.0)),
                      notional, ctx.get("paused_reason"), p_win, plan["rr"], bool(ctx.get("halted")))

@@ -33,6 +33,7 @@ import pandas as pd
 from ..data.market_state import MarketStateStore, RateLimitCoordinator
 from ..execution.broker import Broker, BrokerError, make_client_order_id
 from ..execution import fee_adapter as FA
+from ..execution import tca as TCA
 from ..execution import venue_router as VR
 from ..learn.allocator import MetaAllocator
 from ..learn.challenger import Challenger
@@ -46,6 +47,7 @@ from ..strategies import committee as CM
 from ..strategies import exit_engine as XE
 from ..strategies import fees as FE
 from ..strategies import portfolio_mode as PM
+from ..strategies import reentry as RE
 from ..strategies import sleeves_fast as SF
 from ..strategies import video_scalp as VS
 from ..strategies.lifecycle import Lifecycle
@@ -151,6 +153,7 @@ class RunnerConfig:
     top_k: int = 10                           # Tier-B derin analiz aday sayısı (kaynak durumuna göre düşer)
     max_open_per_sleeve: int = 2              # strateji çeşitlendirmesi: aynı sleeve'den en çok 2 açık pozisyon
     exit: Dict = field(default_factory=lambda: XE.ExitParams().__dict__.copy())
+    reentry: Dict = field(default_factory=lambda: RE.ReentryParams().to_dict())
 
     def to_dict(self) -> Dict:
         return asdict(self)
@@ -217,6 +220,7 @@ class RunnerConfig:
                 except (TypeError, ValueError):
                     pass
         self.exit = xp.validated().__dict__.copy()
+        self.reentry = RE.ReentryParams.from_dict(self.reentry).to_dict()
         if self.market_type == "spot":
             self.params["allow_short"] = False
         return self
@@ -266,6 +270,14 @@ class Position:
     cont_prob: Optional[float] = None
     be_locked: bool = False
     remaining_ev_pct: Optional[float] = None
+    # ─── kâr merdiveni v2 ───────────────────────────────────────────────────
+    ladder: List[Dict] = field(default_factory=list)   # [{price, frac, source, net_pct, hit}]
+    levels_hit: int = 0
+    lock_price: Optional[float] = None                 # kâr kilidinin ürettiği stop
+    locked_net_pct: float = 0.0                        # kilitlenen NET kâr (%) — panelde gösterilir
+    realized_net_pct: float = 0.0                      # merdivenden gerçekleşen NET (% · başlangıç notional'a göre)
+    reentry_count: int = 0                             # aynı harekete kaçıncı giriş
+    parent_exit_ts: float = 0.0                        # yeniden giriş ise önceki çıkışın zamanı
 
     def sign(self) -> float:
         return 1.0 if self.direction == "LONG" else -1.0
@@ -282,21 +294,38 @@ class Position:
         return (self.last_price / self.entry - 1.0) * 100.0 * self.sign() - self.cost_pct_roundtrip
 
     def track(self) -> XE.PositionTrack:
-        return XE.PositionTrack(self.direction, self.entry, self.hard_stop or self.stop,
-                                self.target if self.exit_mode != XE.DYNAMIC_PEAK else None,
-                                self.opened_ts, self.exit_mode, self.stop_pct, self.cost_pct_roundtrip,
-                                self.atr_pct, self.highest_high, self.lowest_low, self.peak_pnl_pct,
-                                self.peak_net_pct, self.armed, self.partial_done, self.trail_stop, self.be_locked)
+        t = XE.PositionTrack(self.direction, self.entry, self.hard_stop or self.stop,
+                             self.target if self.exit_mode != XE.DYNAMIC_PEAK else None,
+                             self.opened_ts, self.exit_mode, self.stop_pct, self.cost_pct_roundtrip,
+                             self.atr_pct, self.highest_high, self.lowest_low, self.peak_pnl_pct,
+                             self.peak_net_pct, self.armed, self.partial_done, self.trail_stop, self.be_locked)
+        # merdiven AYNI nesne olarak verilir: decide_exit basamağı `hit` işaretler,
+        # absorb() geri yazar. Kopyalasaydık basamak her döngüde yeniden ateşlenirdi.
+        t.ladder = self.ladder
+        t.levels_hit = int(self.levels_hit)
+        t.lock_price = self.lock_price
+        return t
 
     def absorb(self, t: XE.PositionTrack) -> None:
         self.highest_high, self.lowest_low = t.highest_high, t.lowest_low
         self.peak_pnl_pct, self.peak_net_pct = t.peak_gross_pct, t.peak_net_pct
         self.armed, self.trail_stop = t.armed, t.trail_stop
+        self.ladder = t.ladder
+        self.levels_hit = int(t.levels_hit)
+        if t.lock_price is not None:
+            self.lock_price = float(t.lock_price)
+        if t.partial_done and not self.partial_done:
+            self.partial_done = True
         if t.be_locked and not self.be_locked:
             self.be_locked = True
         if (t.hard_stop - self.hard_stop) * self.sign() > 0:      # stop yalnız İYİ tarafa hareket eder
             self.hard_stop = t.hard_stop
             self.stop = t.hard_stop
+        if self.be_locked:
+            # KİLİTLİ NET, stop her yükseldiğinde tazelenmeli. (Yalnız `_partial_close`
+            # içinde yazılsaydı, kilidi sonradan yukarı yürüten `decide_exit` sonrasında
+            # panelde BAYAT bir değer kalırdı — kullanıcı korunan kârı yanlış görürdü.)
+            self.locked_net_pct = round(t.net_pct(self.hard_stop), 4)
 
     def to_dict(self, xp: Optional[XE.ExitParams] = None) -> Dict:
         d = asdict(self)
@@ -315,6 +344,16 @@ class Position:
         d["chandelier"] = XE.chandelier_stop(t, xp) if self.armed else None
         d["peak_capture_now"] = XE.peak_capture_ratio(d["net_pct"], self.peak_net_pct)
         d["remaining_ev_pct"] = self.remaining_ev_pct
+        # kâr merdiveni — panelde "hangi tepeye kadar geldik, ne kilitlendi"
+        d["ladder"] = t.ladder_state()
+        d["levels_hit"] = self.levels_hit
+        d["lock_price"] = self.lock_price
+        d["locked_net_pct"] = round(self.locked_net_pct, 4)
+        d["retain_eff"] = round(t.retain_eff(xp), 3)
+        d["realized_net_pct"] = round(self.realized_net_pct, 4)
+        # TOPLAM net = gerçekleşen (merdiven) + kâğıt üstü kalan
+        d["total_net_pct"] = round(self.realized_net_pct
+                                   + d["net_pct"] * (self.amount / max(1e-12, self.amount_initial or self.amount)), 4)
         return d
 
 
@@ -449,6 +488,8 @@ class LiveRunner:
         self._trim_stats = {"n": 0, "last_freed_mb": None}
         self.fee_info: Dict = {}
         self.venue_compare: Dict[str, Dict] = {}
+        self.exit_state: Dict[str, Dict] = {}     # parite → son çıkış (yeniden giriş kapısı)
+        self.reentry_blocks: Deque[Dict] = deque(maxlen=200)   # kapının NE engellediği ölçülebilsin
         live = _live_dir(output_dir)
         tag = f"{self.user_id}_{cfg.exchange_id}"
         self.lessons = LessonEngine(live / f"lessons_{tag}.json",
@@ -574,6 +615,8 @@ class LiveRunner:
                                         if k in XE.ExitParams().__dict__}).validated()
         self.xparams.min_hold_sec = int(self.params.min_hold_sec)
         self.xparams.retain_fraction = float(min(0.70, max(0.35, getattr(self.params, "giveback", 0.5))))
+        self.xparams = self.xparams.validated()
+        self.rparams = RE.ReentryParams.from_dict(self.cfg.reentry)
         if self.cfg.strategy == "committee":
             self.chain = DC.ChainConfig.from_dict({**self.cfg.chain,
                                                    **{k: v for k, v in promoted.items() if k in ("min_gross_to_cost",)}})
@@ -998,6 +1041,12 @@ class LiveRunner:
             spread_bps=book.get("spread_bps", 0.0))
         dec = DC.decide(inp, self.chain)
         trace.update({"plan": plan, "cost_pct": round(cost_pct, 4), "chain": dec.to_dict()})
+        rg = self._reentry_gate(sym, plan["direction"], float(plan["target_pct"]), cost_pct, now)
+        trace["reentry"] = rg
+        if not rg["allowed"]:
+            trace["result"] = f"{rg.get('gate')}: {rg['reason']}"
+            self.last_decisions[sym] = trace
+            return
         if not dec.allowed:
             trace["result"] = "VETO: " + "; ".join(dec.vetoes)
             self.last_decisions[sym] = trace
@@ -1020,16 +1069,49 @@ class LiveRunner:
             return s
         return self.light.get(sym) or {}
 
-    def _fees(self) -> Dict:
+    def _fees(self, symbol: Optional[str] = None) -> Dict:
+        """Hesaba ÖZGÜ komisyon. DÜZELTİLDİ (2026-09-06): eski sürüm her zaman
+        `symbols[0]`'ın oranını çekip TÜM pariteler için kullanıyordu. Borsalar parite
+        bazında farklı oran/indirim uygulayabilir (promosyonlu çiftler, farklı market
+        tipleri) — yanlış ücretle kurulan maliyet kapısı, kâr eşiğini kaydırır."""
         client = None
         if self.cfg.mode != "paper":
             try:
                 client = self.broker._priv()
             except Exception:
                 client = None
-        f = FA.fetch_account_fee(client, self.cfg.exchange_id, self.cfg.symbols[0] if self.cfg.symbols else "BTC/USDT")
-        self.fee_info = f
+        sym = symbol or (self.cfg.symbols[0] if self.cfg.symbols else "BTC/USDT")
+        f = FA.fetch_account_fee(client, self.cfg.exchange_id, sym)
+        if symbol is None or symbol == (self.cfg.symbols[0] if self.cfg.symbols else None):
+            self.fee_info = f
         return f
+
+    def _tca(self, symbol: str, side: str, qty: float, ref_price: float, fill_price: float,
+             order_type: str, fee: float = 0.0, requested_qty: Optional[float] = None) -> None:
+        """Her dolumu TCA'ya yaz. Bu ölçüm olmadan "varsayılan maliyet" ile "ödenen maliyet"
+        arasındaki fark bilinemez; entry_optimizer ve venue_router varsayımla çalışmaya
+        devam eder. Kayıt başarısız olursa işlem AKIŞI DURMAZ (ölçüm, ticaret değil)."""
+        try:
+            TCA.record_fill(symbol, side, float(qty), float(ref_price), float(fill_price),
+                            str(order_type), fee=float(fee or 0.0),
+                            requested_qty=(None if requested_qty is None else float(requested_qty)),
+                            output_dir=self.output_dir)
+        except Exception:
+            pass
+
+    def _tca_report(self, ttl: float = 120.0) -> Dict:
+        """ÖLÇÜLEN yürütme maliyeti vs varsayılan. fills.jsonl büyüdüğü için TTL'li önbellek."""
+        now = time.time()
+        hit = getattr(self, "_tca_cache", None)
+        if hit and now - hit[0] < ttl:
+            return hit[1]
+        try:
+            rep = TCA.tca_report(output_dir=self.output_dir,
+                                 assumed_cost_bps=float(self.venue.taker_bps + 2.0))
+        except Exception as e:
+            rep = {"available": False, "reason": f"{type(e).__name__}"}
+        self._tca_cache = (now, rep)
+        return rep
 
     def _update_portfolio_mode(self, prices: Dict[str, float], now: float, stale_share: float = 0.0) -> None:
         slow_map = {}
@@ -1097,9 +1179,21 @@ class LiveRunner:
             for sym, pos in list(self.positions.items()):
                 self._close(pos, prices.get(sym) or pos.last_price or pos.entry, "NAKİT MODU", now)
         elif acts.get("tighten_stops"):
+            # DÜZELTİLDİ (2026-09-06): stop `pos.entry`'ye çekiliyordu. Giriş fiyatı NET
+            # başabaş değildir (gidiş-dönüş komisyon + kayma kadar eksik) — savunma modunda
+            # "korunan" pozisyon küçük ZARARLA kapanıyordu. Artık kâr kilidi seviyesine
+            # (tepe × retain, tabanı net başabaş) çekilir.
+            xp_ = self.xparams
             for pos in self.positions.values():
-                if pos.net_pct_now() > 0 and (pos.entry - pos.hard_stop) * pos.sign() > 0:
-                    pos.hard_stop = pos.entry            # kârdaki pozisyon: stop girişe
+                if pos.net_pct_now() <= 0:
+                    continue
+                t_ = pos.track()
+                lvl = t_.lock_level(xp_) or t_.breakeven_plus()
+                if (lvl - pos.hard_stop) * pos.sign() > 0:
+                    pos.stop = pos.hard_stop = float(lvl)
+                    pos.lock_price = float(lvl)
+                    pos.be_locked = True
+                    pos.locked_net_pct = round(t_.net_pct(float(lvl)), 4)
         if self.cash_mode and lvl == 0 and self.portfolio["mode"] in (PM.RISK_ON, PM.SELECTIVE):
             self.cash_mode = False
             self._log("system", "🟢 Nakit modundan çıkıldı — girişler yeniden açık")
@@ -1135,7 +1229,7 @@ class LiveRunner:
         prior = (float(cell["p_model_live"]) if cell and str(cell.get("status", "")).upper() == "QUALIFIED"
                  and isinstance(cell.get("p_model_live"), (int, float)) else None)
         p_win = self.lessons.p_win(prior=prior if prior is not None else 0.5)
-        fee = self._fees()
+        fee = self._fees(sym)                        # parite BAZINDA oran (symbols[0] değil)
         size_mode = float(self.portfolio.get("actions", {}).get("size_mult", 1.0))
         ctx = {
             "symbol": sym, "price": price, "df": df, "slow": slow, "qual_cell": cell,
@@ -1206,6 +1300,26 @@ class LiveRunner:
             pl = verdict.plan
             self.missed.on_unevaluated(sym, "SLEEVE_TAVANI", trace.get("fast") or {}, price, verdict.direction, float(pl["stop_pct"]),
                                        float(pl["target_pct"]), float(p.max_hold_sec), now, info=info_flags, context=self._blind_context(),
+                                       detail=trace["result"])
+            return
+        # ── YENİDEN GİRİŞ / SALINIM-MALİYET KAPISI ────────────────────────────────
+        # Beklenen salınım için planın hedefi DEĞİL, ÖLÇÜLMÜŞ ulaşılabilir hedef kullanılır
+        # (85 canlı işlemin 1'i sabit hedefe ulaştı; plan hedefi iyimserdir).
+        tk = trace.get("ticket") or {}
+        swing = tk.get("achievable_target_pct")
+        if swing is None:
+            swing = (verdict.plan or {}).get("target_pct")
+        cost_here = float(tk.get("fee_pct_roundtrip") or trace.get("cost_pct") or self._cost_pct_est())
+        rg = self._reentry_gate(sym, verdict.direction, (None if swing is None else float(swing)),
+                                cost_here, now)
+        trace["reentry"] = rg
+        if not rg["allowed"]:
+            trace["result"] = f"{rg.get('gate')}: {rg['reason']}"
+            self.last_decisions[sym] = trace
+            pl = verdict.plan
+            self.missed.on_unevaluated(sym, str(rg.get("gate") or "YENİDEN_GİRİŞ"), trace.get("fast") or {}, price,
+                                       verdict.direction, float(pl["stop_pct"]), float(pl["target_pct"]),
+                                       float(p.max_hold_sec), now, info=info_flags, context=self._blind_context(),
                                        detail=trace["result"])
             return
         corr = self._corr_with_open(sym)
@@ -1300,7 +1414,7 @@ class LiveRunner:
         if str(h.get("overall") or "UNKNOWN").upper() in ("RED", "UNKNOWN"):
             return None
         slow = self._slow_ctx(sym); book = self._book(sym); p = self.params
-        fee = self._fees()
+        fee = self._fees(sym)                        # parite BAZINDA oran
         ctx = {"symbol": sym, "price": price, "df": df, "slow": slow, "qual_cell": None, "book": book,
                "fees": {"maker_bps": fee["maker_bps"], "taker_bps": fee["taker_bps"], "verified": fee.get("verified")},
                "open_positions": {s_: {"direction": x.direction} for s_, x in self.positions.items()},
@@ -1419,6 +1533,16 @@ class LiveRunner:
             near = plan.get("partial_tp_near")
             if near and (float(near) - pos.entry) * s / pos.entry * 100.0 >= 1.5 * pos.cost_pct_roundtrip:
                 pos.partial_tp = float(near)            # yakın yapısal seviye = kısmi kâr (karşı-olgusal kanıt)
+        # KÂR MERDİVENİ (T1…Tn) — R katları, yapısal seviyeler varsa onlara oturtulur.
+        # Bu, "altı tepeyi önceden bilmek" değil; ölçekli çıkış basamaklarıdır. Her basamak
+        # yalnız NET kârı maliyetin katını aşarsa kurulur (komisyon için işlem yapılmaz).
+        pos.ladder = self._build_ladder(pos, plan, decision)
+        prev_exit = self.exit_state.get(sym) or {}
+        if str(prev_exit.get("direction") or "") == pos.direction:
+            pos.reentry_count = int(prev_exit.get("count") or 0)
+            pos.parent_exit_ts = float(prev_exit.get("ts") or 0.0)
+        self._tca(sym, "buy" if pos.direction == "LONG" else "sell", pos.amount,
+                  float(plan.get("entry") or pos.entry), pos.entry, order_type, pos.entry_fee, pos.amount)
         self.positions[sym] = pos
         self.fees_paid += pos.entry_fee
         self.day_trades += 1
@@ -1478,15 +1602,100 @@ class LiveRunner:
     def _book(self, sym: str) -> Dict:
         try:
             return self.store.get_book(self.cfg.exchange_id, sym)
-        except Exception:
-            return {"spread_bps": 0.0, "bid_depth_usd": 0.0, "ask_depth_usd": 0.0}
+        except Exception as e:
+            # `ok: False` şart: sıfır spread "bedava" değil "ölçülmedi" demektir
+            return {"spread_bps": 0.0, "bid_depth_usd": 0.0, "ask_depth_usd": 0.0,
+                    "ok": False, "stale": True, "why": type(e).__name__}
 
     # ------------------------------------------------------------ çıkış
+    def _reentry_gate(self, sym: str, direction: str, expected_swing_pct: Optional[float],
+                      cost_pct: float, now: float, cont_prob: Optional[float] = None) -> Dict:
+        """Yeniden giriş / maliyet kapısı. Aday hâlâ tüm komite kapılarından geçer;
+        bu yalnız EK bir kısıt: kârla çıkılan harekete geri girişe izin verir,
+        zararla çıkılan fikre hemen dönüşü ve komisyon-altı salınımları engeller."""
+        try:
+            d = RE.decide(self.exit_state, sym, direction, now, expected_swing_pct,
+                          float(cost_pct or 0.0), self.rparams, cont_prob)
+        except Exception:
+            return {"allowed": True, "reason": "kapı hatası — geçirildi", "reentry_count": 0, "gate": None}
+        if not d["allowed"]:
+            self.reentry_blocks.append({"ts": now, "symbol": sym, "direction": direction,
+                                        "gate": d.get("gate"), "reason": d.get("reason")})
+        return d
+
+    def _build_ladder(self, pos: Position, plan: Optional[Dict] = None,
+                      decision: Optional[Dict] = None) -> List[Dict]:
+        """Pozisyonun kâr merdivenini kur. Yapısal seviyeler (yakın direnç, swing high,
+        planın hedefi) varsa basamaklar onlara oturtulur — böylece kâr, gerçek likidite
+        bölgelerinde alınır, keyfî R noktalarında değil."""
+        struct: List[float] = []
+        for v in ((plan or {}).get("partial_tp_near"), (plan or {}).get("target")):
+            if v:
+                struct.append(float(v))
+        fast = (decision or {}).get("fast") or {}
+        lv = (decision or {}).get("levels") or {}
+        keys = ("resistance", "swing_high", "prior_swing_high") if pos.direction == "LONG" \
+            else ("support", "swing_low", "prior_swing_low")
+        for k in keys:
+            v = fast.get(k, lv.get(k))
+            if isinstance(v, (int, float)) and v > 0:
+                struct.append(float(v))
+        xp = XE.ExitParams(**{**self.xparams.__dict__,
+                              "time_stop_sec": pos.time_stop_sec or self.xparams.time_stop_sec})
+        t = pos.track()
+        lad = t.build_ladder(xp, struct)
+        return self._fit_ladder_to_size(pos, lad)
+
+    def _fit_ladder_to_size(self, pos: Position, ladder: List[Dict]) -> List[Dict]:
+        """Merdiveni EMİR BOYUTUNA uydur.
+
+        ÖLÇÜLEN KISIT: kâğıt modda `min_notional` 10 $ (muhafazakâr varsayılan) ve
+        canlı kâğıt koşumunda `max_order_usdt` da 10 $. Yani 4 basamaklı bir merdivenin
+        ilk dilimi 2,50 $ olur ve borsa asgarisinin ALTINDA kalır — hiçbir basamak
+        ateşlenemez. (Aynı sebeple eski tek `partial_tp` de 200 işlemin yalnız 7'sinde
+        çalışabilmişti.) Sessizce çalışmayan bir özellik, olmayan bir özellikten kötüdür:
+        burada basamaklar BİRLEŞTİRİLİR; hiçbiri sığmıyorsa merdiven KURULMAZ ve pozisyon
+        notuna sebebi yazılır — kâr kilidi zaten bağımsız çalışmaya devam eder."""
+        if not ladder:
+            return []
+        try:
+            mn = float(self.broker.market_rules(pos.symbol)["min_notional"])
+        except Exception:
+            mn = 10.0
+        notional = float(pos.notional or 0.0)
+        if notional <= 0 or mn <= 0:
+            return ladder
+        min_frac = mn / notional                       # bir dilimin taşıması gereken asgari pay
+        out: List[Dict] = []
+        carry = 0.0
+        for lv in ladder:
+            f = float(lv.get("frac") or 0.0) + carry
+            if f < min_frac:                           # bu dilim tek başına asgariyi geçmiyor → sonrakine taşı
+                carry = f
+                continue
+            # dilimi aldıktan sonra KALAN da asgariyi geçmeli, yoksa kalan kapatılamaz
+            used = sum(x["frac"] for x in out) + f
+            if (1.0 - used) < min_frac:
+                carry = f
+                continue
+            out.append({**lv, "frac": round(f, 4)})
+            carry = 0.0
+        if not out and not getattr(self, "_ladder_warned", False):
+            self._ladder_warned = True          # her pozisyonda değil, oturumda BİR kez
+            self._log("system", f"ℹ️ Kâr merdiveni kurulamıyor: emir {notional:.2f} $ · borsa asgari emri "
+                                f"{mn:.2f} $ — hiçbir dilim asgariyi geçmiyor. Kâr KİLİDİ (tepe×retain) "
+                                f"bağımsız çalışmaya devam ediyor. Basamaklı kâr alımı için emir boyutu "
+                                f"≥ {mn * 2:.0f} $ olmalı (kanıt tavanı bunu belirler).")
+        return out
+
     def _manage_exit(self, pos: Position, px: float, hi: float, lo: float, now: float) -> None:
         s = pos.sign()
-        if (not pos.partial_done and pos.partial_tp and pos.partial_fraction > 0
+        # ESKİ tek kısmi TP — merdiven kapalıysa (veya basamak kurulamadıysa) geri düşüş yolu.
+        # Bu bir kâr ALMA'dır (koruma değil): asgari tutmayı BEKLER. 37.905 eşleştirilmiş yolda
+        # erken ölçekli çıkış beklentiyi düşürdü (−0,0015 puan, t = −4,79) — kazananı kırpıyor.
+        if (not pos.ladder and not pos.partial_done and pos.partial_tp and pos.partial_fraction > 0
                 and (px - pos.partial_tp) * s >= 0 and now - pos.opened_ts >= self.params.min_hold_sec):
-            self._partial_close(pos, px, now)
+            self._partial_close(pos, px, now, pos.partial_fraction, "PARTIAL_TP")
         if self.cfg.strategy == "committee" and self.cycle % 5 == 0:
             df_ = self.store._ohlcv.get((self.cfg.exchange_id, pos.symbol, f"{self.params.bar_minutes}m"), {}).get("df")
             self._refresh_position_edge(pos, df_, now)
@@ -1494,10 +1703,31 @@ class LiveRunner:
         t = pos.track()
         dec = XE.decide_exit(t, px, hi, lo, xp, now, pos.cont_prob, pos.current_ev_pct)
         pos.absorb(t)
-        if dec:
-            # Stop bar İÇİNDE delindiyse kapanış fiyatı değil STOP SEVİYESİ doldurulur;
-            # aksi hâlde zarar "kapanışa kadar bekledik" varsayımıyla olduğundan küçük yazılır.
-            self._close(pos, float(dec.get("exit_price") or px), dec["reason"], now, extra=dec)
+        if not dec:
+            return
+        if dec.get("partial"):
+            # KÂR MERDİVENİ BASAMAĞI — pozisyon KAPANMAZ, ölçekli çıkış yapılır.
+            # Dolum referansı: basamak fiyatı ile güncel fiyatın KÖTÜ olanı. Seviye bar
+            # içinde görülmüş olsa bile "tam o seviyeden dolduk" varsaymak iyimserdir;
+            # fiyat seviyenin altına döndüyse gerçekte oradan satılır.
+            lvl_px = float(dec.get("exit_price") or px)
+            fill_ref = min(lvl_px, px) if pos.direction == "LONG" else max(lvl_px, px)
+            before = pos.amount
+            self._partial_close(pos, fill_ref, now,
+                                float(dec.get("fraction") or 0.0), "LADDER_TP", extra=dec)
+            if pos.amount >= before - 1e-12:
+                # Basamak "geçildi" sayıldı ama emir gönderilemedi (dilim borsa asgarisinin
+                # altında). Kilit yine de yükseldi; sessiz kalmamak için kaydedilir.
+                self._log("system", f"⚠️ {pos.symbol} T{pos.levels_hit} kısmi çıkışı yapılamadı "
+                                    f"(dilim borsa asgarisinin altında) — kâr kilidi {pos.hard_stop:.6g} "
+                                    f"seviyesinde yükseltildi, pozisyon tam boyutta koşuyor")
+            # merdiven tamamen tükendiyse ve kalan miktar borsa asgarisinin altındaysa kapat
+            if pos.amount * px < self.broker.market_rules(pos.symbol)["min_notional"]:
+                self._close(pos, px, "LADDER_SON", now, extra=dec)
+            return
+        # Stop bar İÇİNDE delindiyse kapanış fiyatı değil STOP SEVİYESİ doldurulur;
+        # aksi hâlde zarar "kapanışa kadar bekledik" varsayımıyla olduğundan küçük yazılır.
+        self._close(pos, float(dec.get("exit_price") or px), dec["reason"], now, extra=dec)
 
     def _refresh_position_edge(self, pos: Position, df=None, now: Optional[float] = None) -> None:
         """Açık pozisyonun KALAN EV'si: devam olasılığı (trend/CVD/defter/eğim/RSI/kalan ufuk) × hedef mesafesi −
@@ -1553,23 +1783,68 @@ class LiveRunner:
         self._log("exit", f"🔁 ROTASYON: {victim.symbol} kalan EV %{victim.remaining_ev_pct:.3f} < {sym_b} EV %{float(ev_b_pct):.3f} − geçiş %{switching:.2f}")
         return victim
 
-    def _partial_close(self, pos: Position, price: float, now: float) -> None:
-        amt = pos.amount * pos.partial_fraction
+    def _partial_close(self, pos: Position, price: float, now: float, fraction: float,
+                       reason: str = "PARTIAL_TP", extra: Optional[Dict] = None) -> None:
+        """Ölçekli çıkış. Miktar BAŞLANGIÇ miktarının payı kadardır (merdiven basamakları
+        birbirini yemesin diye), kalan miktarla sınırlıdır.
+
+        DÜZELTİLEN HATA (2026-09-06): eski sürüm kısmi kârdan sonra stop'u `pos.entry`'ye
+        çekiyordu. Giriş fiyatı NET başabaş DEĞİLDİR — giriş komisyonu + çıkış komisyonu +
+        kayma kadar eksiktedir; o seviyeden kapanan koşucu küçük ZARARLA kapanıyordu.
+        Yeni davranış: stop, çıkış motorunun KÂR KİLİDİ seviyesine (tepe × retain, tabanı
+        net başabaş) çekilir."""
+        fraction = float(max(0.0, min(1.0, fraction or 0.0)))
+        base = pos.amount_initial or pos.amount
+        amt = min(pos.amount, base * fraction)
+        if amt <= 0 or pos.amount <= 0:
+            return
+        rules = self.broker.market_rules(pos.symbol)
+        # Kalan parça borsa asgarisinin altında kalacaksa ölçekli çıkış yapılamaz:
+        # "kapatamayacağın artık" bırakmak, sonraki çıkışı emir reddine düşürür.
+        if (pos.amount - amt) * price < rules["min_notional"] or amt * price < rules["min_notional"]:
+            return
         side = "sell" if pos.direction == "LONG" else "buy"
-        cid = make_client_order_id(self.user_id, self.cfg.exchange_id, pos.symbol, self.cycle, side + "p")
+        cid = make_client_order_id(self.user_id, self.cfg.exchange_id, pos.symbol, self.cycle,
+                                   side + "p" + str(pos.levels_hit))
         try:
             o = self.broker.market_order(pos.symbol, side, amt * price, cid, ref_price=price, reduce_only=True, amount=amt)
         except BrokerError as e:
             self._log("error", f"{pos.symbol} kısmi kapanış reddedildi: {e}")
             pos.partial_done = True
             return
-        gross = float(o["amount"]) * (float(o["avg_price"]) - pos.entry) * pos.sign()
+        filled = float(o["amount"]); fill_px = float(o["avg_price"])
+        gross = filled * (fill_px - pos.entry) * pos.sign()
         fee = float(o.get("fee_usdt") or 0.0)
-        pos.amount -= float(o["amount"]); pos.realized += gross; pos.fees_partial += fee
+        pos.amount -= filled
+        pos.realized += gross
+        pos.fees_partial += fee
         pos.partial_done = True
-        pos.stop = pos.hard_stop = pos.entry
+        pos.realized_net_pct = round((pos.realized - pos.fees_partial - pos.entry_fee * (filled / max(1e-12, base)))
+                                     / max(1e-9, pos.notional) * 100.0, 4)
         self.fees_paid += fee
-        self._log("exit", f"🟢 {pos.symbol} kısmi TP: %{pos.partial_fraction*100:.0f} kapatıldı @ {o['avg_price']:.6g} · brüt {gross:+.2f} · stop → giriş")
+        self._tca(pos.symbol, side, filled, price, fill_px, pos.order_type, fee, amt)
+        # stop → KÂR KİLİDİ (net başabaşın altına asla inmez)
+        xp = XE.ExitParams(**{**self.xparams.__dict__, "time_stop_sec": pos.time_stop_sec or self.xparams.time_stop_sec})
+        t = pos.track()
+        # Tepe, ŞU ANKİ fiyatı da içermeli: eski kısmi TP yolu `decide_exit`ten ÖNCE
+        # çalışıyor, dolayısıyla `peak_net_pct` henüz bu barı görmemiş olabilir. Görmemiş
+        # tepeyle hesaplanan kilit, kârı kilitlemek yerine başabaşa düşerdi.
+        t.peak_net_pct = max(t.peak_net_pct, t.net_pct(fill_px))
+        lock = t.lock_level(xp) or t.breakeven_plus()
+        if (lock - pos.hard_stop) * pos.sign() > 0:
+            pos.stop = pos.hard_stop = float(lock)
+            pos.lock_price = float(lock)
+            pos.be_locked = True
+        pos.locked_net_pct = round(t.net_pct(pos.hard_stop), 4)
+        lbl = f"T{pos.levels_hit}" if reason == "LADDER_TP" else "kısmi TP"
+        src = (extra or {}).get("source") or ""
+        self._log("exit", f"🟢 {pos.symbol} {lbl} ({src}): %{fraction*100:.0f} kapatıldı @ {fill_px:.6g} · "
+                          f"brüt {gross:+.4f} · stop → {pos.hard_stop:.6g} (net %{pos.locked_net_pct:+.3f} kilitli) · "
+                          f"kalan %{pos.amount / max(1e-12, base) * 100:.0f}")
+        audit("ORDER_PARTIAL", {"user": self.user_id, "exchange": self.cfg.exchange_id, "mode": pos.mode,
+                                "symbol": pos.symbol, "reason": reason, "level": pos.levels_hit,
+                                "fraction": fraction, "fill": fill_px, "gross": round(gross, 4),
+                                "locked_net_pct": pos.locked_net_pct, "client_id": cid}, self.output_dir)
 
     def _close(self, pos: Position, price: float, reason: str, now: Optional[float] = None,
                extra: Optional[Dict] = None) -> Optional[Dict]:
@@ -1584,6 +1859,7 @@ class LiveRunner:
             return None
         exit_px = float(o["avg_price"])
         exit_fee = float(o.get("fee_usdt") or 0.0)
+        self._tca(pos.symbol, side, float(o["amount"]), price, exit_px, "taker", exit_fee, pos.amount)
         gross = pos.amount * (exit_px - pos.entry) * pos.sign() + pos.realized
         fees = pos.entry_fee + exit_fee + pos.fees_partial
         net = gross - fees
@@ -1601,9 +1877,22 @@ class LiveRunner:
                "mode": pos.mode, "strategy": self.cfg.strategy, "order_type": pos.order_type,
                "trigger": pos.trigger, "sleeve": pos.sleeve, "template": pos.template, "exit_mode": pos.exit_mode,
                "target": pos.target, "partial_done": pos.partial_done, "horizon_sec": float(pos.time_stop_sec or 3600),
+               "levels_hit": pos.levels_hit, "ladder": pos.ladder, "locked_net_pct": pos.locked_net_pct,
+               "reentry_count": pos.reentry_count, "realized_partial": round(pos.realized, 4),
+               # ÇIKIŞ A/B'si için gereken alanlar. Bunlar defterde YOKTU; 200 işlemlik
+               # canlı kayıttan çıkış motorunu yeniden oynatmak bu yüzden mümkün değildi
+               # (stop mesafesi/ATR/maliyet geri çıkarılamıyordu). Artık kayıtlı.
+               "stop_pct": round(pos.stop_pct, 4), "target_pct": round(pos.target_pct, 4),
+               "cost_pct_roundtrip": round(pos.cost_pct_roundtrip, 4), "atr_pct": round(pos.atr_pct, 4),
+               "entry_stop_price": round(pos.entry * (1 - pos.sign() * pos.stop_pct / 100.0), 10),
                "fee_drag": (round(fees / gross, 3) if gross > 0 else None), "exit_detail": extra or {},
                "p_win": ((pos.decision or {}).get("ticket") or {}).get("p_win"),
                "ev_pct": ((pos.decision or {}).get("ticket") or {}).get("ev_pct")}
+        try:
+            RE.record_exit(self.exit_state, pos.symbol, pos.direction, reason, net,
+                           pos.peak_net_pct, now, self.rparams)
+        except Exception:
+            pass
         rec["prev_hash"] = self._ledger_hash
         rec["hash"] = _rec_hash(rec, self._ledger_hash)
         self._ledger_hash = rec["hash"]
@@ -2016,6 +2305,12 @@ class LiveRunner:
                 "venue": {"exchange_id": self.venue.exchange_id, "maker_bps": self.venue.maker_bps,
                           "taker_bps": self.venue.taker_bps, "note": self.venue.note},
                 "fee_info": self.fee_info, "venue_compare": self.venue_compare,
+                "reentry": {"params": self.rparams.to_dict(), "recent_blocks": list(self.reentry_blocks)[-20:],
+                            "n_blocked": len(self.reentry_blocks),
+                            "last_exits": {k: {"reason": v.get("reason"), "direction": v.get("direction"),
+                                               "net_pnl": v.get("net_pnl"), "count": v.get("count"), "ts": v.get("ts")}
+                                           for k, v in list(self.exit_state.items())[-20:]}},
+                "tca": self._tca_report(),
                 "risk_mode": self.risk, "cash_mode": self.cash_mode, "portfolio_mode": self.portfolio,
                 "resource": self.resource, "best_action": self.best_action(),
                 "top_opportunities": self.top_opportunities(3),
@@ -2056,6 +2351,7 @@ class LiveRunner:
                  "equity_history": self.equity_history[-EQUITY_HISTORY_MAX:],
                  "paper_cash": self.broker.paper_cash, "paper_holdings": self.broker.paper_holdings,
                  "last_decisions": self.last_decisions, "promoted": self._promoted, "ledger_hash": self._ledger_hash,
+                 "exit_state": self.exit_state,
                  "created_ts": self.created_ts, "saved_ts": time.time()}
             tmp = self._path.with_suffix(".tmp")
             tmp.write_text(json.dumps(d, ensure_ascii=False, default=str), encoding="utf-8")
@@ -2070,6 +2366,13 @@ class LiveRunner:
                     pos = Position(**{k: v for k, v in p.items() if k in Position.__dataclass_fields__})
                     if not pos.hard_stop:
                         pos.hard_stop = pos.stop
+                    if not pos.ladder:
+                        # v1 durumundan yüklenen açık pozisyon: merdiveni kur (yapısal seviye yok,
+                        # yalnız R katları). Basamak zaten geçilmişse ilk kontrolde işaretlenir.
+                        try:
+                            pos.ladder = self._build_ladder(pos)
+                        except Exception:
+                            pos.ladder = []
                     self.positions[pos.symbol] = pos
                 except Exception:
                     continue
@@ -2098,6 +2401,18 @@ class LiveRunner:
             except Exception:
                 pass
             self.last_decisions = dict(d.get("last_decisions") or {})
+            self.exit_state = {k: v for k, v in (d.get("exit_state") or {}).items() if isinstance(v, dict)}
+            if not self.exit_state and self.trades:
+                # v1 durumundan yükleniyorsa son çıkışları defterden kur — yeniden giriş
+                # kapısı yeniden başlatmadan sonra "hiç işlem olmamış" sanmasın.
+                for t in self.trades[-200:]:
+                    try:
+                        RE.record_exit(self.exit_state, str(t["symbol"]), str(t["direction"]),
+                                       str(t.get("reason") or ""), float(t.get("net_pnl") or 0.0),
+                                       float(t.get("peak_net_pct") or 0.0), float(t.get("closed_ts") or 0.0),
+                                       self.rparams)
+                    except Exception:
+                        continue
             self._promoted = dict(d.get("promoted") or {})
             self._ledger_hash = str(d.get("ledger_hash") or (self.trades[-1].get("hash", "") if self.trades else ""))
             self.created_ts = float(d.get("created_ts", time.time()))

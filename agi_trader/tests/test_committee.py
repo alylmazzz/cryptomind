@@ -397,7 +397,11 @@ def test_komite_kosucu_maker_bekler_dolar_ve_tp_ile_kapatir(tmp_path):
     def slow(sym):
         px = FakeExchange.path[sym][-1]
         return _slow(px, age=30.0)
-    reg, r = _sim_runner(tmp_path, slow)
+    # Emir boyutu borsa asgarisinin KATI olmalı: 10 $ emir + 10 $ asgari emir kombinasyonunda
+    # hiçbir kısmi/basamaklı kâr alınamaz (canlıda emir REDDEDİLİR, kâğıtta sessizce geçerdi).
+    reg, r = _sim_runner(tmp_path, slow, max_order_usdt=200.0, risk_per_trade_pct=2.0,
+                         capital_usdt=1000.0, max_exposure_pct=60.0,
+                         params={**SIM.default_config("mexc").params, "probe_notional_usdt": 200.0})
     assert r.broker.maker_fee_bps == 0.0 and r.broker.fee_bps == 5.0
     p = _path(dip_last=12, dip_pct=3.0); p[-1] = p[-2] * 1.002       # dip + yeşil bar
     FakeExchange.path["BTC/USDT"] = p
@@ -417,7 +421,10 @@ def test_komite_kosucu_maker_bekler_dolar_ve_tp_ile_kapatir(tmp_path):
     r.run_cycle(now=1_000_000.0 + 20 * 60)
     assert "BTC/USDT" in r.positions and not r.trades
     pos = r.positions["BTC/USDT"]
-    assert pos.partial_done and pos.hard_stop >= pos.entry and pos.armed and pos.peak_net_pct > 1.0      # BE kilidi stop'u başabaş+maliyete çeker
+    assert pos.partial_done and pos.realized > 0            # kısmi kâr alındı (merdiven varsayılan KAPALI)
+    # v2: kilit BAŞABAŞA değil, tepenin retain oranına — net başabaşın ÜSTÜNDE
+    assert pos.locked_net_pct > 0 and pos.lock_price > pos.entry * (1 + pos.cost_pct_roundtrip / 100.0)
+    assert pos.hard_stop >= pos.entry and pos.armed and pos.peak_net_pct > 1.0
     lvl = pos.track().giveback_level(r.xparams)
     assert pos.entry < lvl < pos.last_price
     # yarı-tepe geri-verme seviyesinin altına → GIVEBACK (NET tepenin ≥ %50'si korunur), hard stop asla kalkmadı

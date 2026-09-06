@@ -20,13 +20,20 @@ from __future__ import annotations
 
 import hashlib
 import math
+import os
 import time
 from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
 
 MODES = ("paper", "testnet", "live")
-MIN_NOTIONAL_FALLBACK = 10.0          # Binance spot çoğu paritede 5-10 USDT
+# Kâğıt modda borsanın market tablosu YÜKLENMEZ (MEXC ~2.500 market, on MB'larca RSS),
+# bu yüzden muhafazakâr bir asgari emir varsayılır. Ama bu varsayım ÖLÇÜMÜ ÇARPITIR:
+# `max_order_usdt` de 10 $ olduğunda hiçbir kısmi/basamaklı kâr alımı YAPILAMAZ — dilim
+# her zaman asgarinin altında kalır. (200 canlı işlemin yalnız 7'sinde kısmi kâr
+# alınabilmesinin sebeplerinden biri budur.) Borsanın gerçek asgarisi ortam değişkeniyle
+# verilebilir; VARSAYILAN DEĞİŞMEDİ — bilinçli bir karar olmadan gevşemesin.
+MIN_NOTIONAL_FALLBACK = float(os.environ.get("CRYPTOMIND_PAPER_MIN_NOTIONAL", "10.0"))
 
 
 def make_client_order_id(user_id: int, exchange_id: str, symbol: str,

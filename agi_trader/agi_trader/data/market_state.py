@@ -31,6 +31,13 @@ BOOK_TTL = 10.0
 MAX_BUFFERS = 400
 
 
+def _unmeasured_book(why: str) -> Dict:
+    """ÖLÇÜLMEMİŞ defter. `ok=False` taşır; spread 0 ise bu 'spread yok' DEĞİL,
+    'bilinmiyor' demektir — maliyet modeli bunu iyimserlik olarak okumamalı."""
+    return {"spread_bps": 0.0, "bid_depth_usd": 0.0, "ask_depth_usd": 0.0,
+            "ok": False, "stale": True, "why": why}
+
+
 class RateLimited(RuntimeError):
     pass
 
@@ -185,6 +192,13 @@ class MarketStateStore:
 
     # ------------------------------------------------------------ defter
     def get_book(self, exchange: str, symbol: str, now: Optional[float] = None) -> Dict:
+        """Defter anlık görüntüsü. ÖNEMLİ: başarısızlıkta dönen sözlük `ok: False` taşır.
+
+        DÜZELTİLEN SESSİZ İYİMSERLİK (2026-09-06): hata yolunda `spread_bps: 0.0`
+        dönüyordu. Sıfır spread, maliyet modelinde "bedava yürütme" demektir — defter
+        alınamadığında işlem GERÇEKTE OLDUĞUNDAN UCUZ görünüyor, `max_spread_bps`
+        kapısı da otomatik geçiyordu. Yani veri kaybı, kapıyı sıkmak yerine GEVŞETİYORDU.
+        Artık `ok` bayrağı taşınır; maliyet rolü ölçülmemiş defterle işlem açtırmaz."""
         now = time.time() if now is None else now
         key = (exchange, symbol)
         hit = self._book.get(key)
@@ -192,7 +206,7 @@ class MarketStateStore:
             self.stats["book_hits"] += 1
             return hit["book"]
         if self._fetch_book is None:
-            return {"spread_bps": 0.0, "bid_depth_usd": 0.0, "ask_depth_usd": 0.0}
+            return _unmeasured_book("defter kaynağı yok")
         with self._lock_for(key):
             hit = self._book.get(key)
             if hit and 0.0 <= now - hit["ts"] < BOOK_TTL:
@@ -202,10 +216,15 @@ class MarketStateStore:
             try:
                 b = self._fetch_book(exchange, symbol)
                 self.rate.report(exchange, True)
-            except Exception:
+            except Exception as e:
                 self.stats["errors"] += 1
                 self.rate.report(exchange, False)
-                return (hit or {}).get("book") or {"spread_bps": 0.0, "bid_depth_usd": 0.0, "ask_depth_usd": 0.0}
+                old = (hit or {}).get("book")
+                if old:                       # bayat ama ÖLÇÜLMÜŞ defter: kullan, bayat işaretle
+                    return {**old, "stale": True, "age_sec": round(now - float(hit["ts"]), 1)}
+                return _unmeasured_book(f"defter alınamadı ({type(e).__name__})")
+            if isinstance(b, dict):
+                b = {**b, "ok": True, "stale": False}
             self._book[key] = {"book": b, "ts": now}
             return b
 

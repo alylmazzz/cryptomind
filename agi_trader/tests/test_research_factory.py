@@ -412,7 +412,7 @@ def test_kosucu_giris_kapaliyken_kor_nokta_gate_ile_kaydeder(tmp_path):
 
 def test_kosucu_kacirilan_kazanci_cozer_ve_loglar(tmp_path):
     reg, r = _runner(tmp_path, ["ETH/USDT"])
-    r._fees = lambda: {"maker_bps": 40.0, "taker_bps": 60.0, "verified": True}     # pahalı borsa → KOMİSYON vetosu
+    r._fees = lambda *a, **k: {"maker_bps": 40.0, "taker_bps": 60.0, "verified": True}     # pahalı borsa → KOMİSYON vetosu
     p = _path(dip_last=12, dip_pct=3.0); p[-1] = p[-2] * 1.002
     FakeExchange.path["ETH/USDT"] = p
     r.run_cycle(now=1_000_000.0)
@@ -619,13 +619,30 @@ def _trk(mode=XE9.FIXED_TARGET, cost=0.2, atr=0.3, stop_pct=1.0):
     return XE9.PositionTrack("LONG", 100.0, 100.0 * (1 - stop_pct / 100), 101.6, 1000.0, mode, stop_pct, cost, atr)
 
 
-def test_basabas_kilidi_kazanci_kayba_dondurmez():
+def test_kar_kilidi_kazanci_SIFIRA_degil_kara_kilitler():
+    """v2 REGRESYONU. v1'de kilit stop'u BAŞABAŞA (100,20) çekiyordu; kâr TAM geri
+    veriliyordu — canlıda 38 işlem tepe net %0,311'e çıkıp %0,0115'te kapandı (PCR 0,042).
+    v2'de kilit tepenin retain oranını (%50) korur: net başabaşın ÜSTÜNDE bir seviye."""
     p = XE9.ExitParams(min_hold_sec=0, time_stop_sec=3600)
     t = _trk()
     assert XE9.decide_exit(t, 100.35, 100.35, 100.0, p, now=1100.0) is None and not t.be_locked   # net %0,15 < 1,5×maliyet(0,2)=0,3 → henüz kilit yok
-    assert XE9.decide_exit(t, 100.55, 100.55, 100.3, p, now=1200.0) is None and t.be_locked and t.hard_stop == pytest.approx(100.2)
-    d = XE9.decide_exit(t, 100.15, 100.3, 100.1, p, now=1300.0)                              # başabaşın altına döndü → BE_LOCK çıkışı
-    assert d and d["reason"] == "BE_LOCK" and d["net_pct"] >= -0.05
+    assert XE9.decide_exit(t, 100.55, 100.55, 100.3, p, now=1200.0) is None and t.be_locked
+    # tepe net %0,35 → kilit = %0,175 net → fiyat 100 × (1 + (0,175 + 0,200)/100) = 100,375
+    assert t.hard_stop == pytest.approx(100.375)
+    assert t.hard_stop > t.breakeven_plus(), "kilit net başabaşın ÜSTÜNDE olmalı"
+    d = XE9.decide_exit(t, 100.40, 100.45, 100.30, p, now=1300.0)      # kilide indi
+    assert d and d["reason"] == "GIVEBACK"
+    assert d["net_pct"] > 0, "v1'de bu çıkış net 0,00 idi — kâr korunmalı"
+    assert d["net_pct"] == pytest.approx(0.175)
+
+
+def test_kilit_v1_moduna_geri_alinabilir():
+    """Geri alma yolu: lock_mode='breakeven' v1 davranışını aynen verir (A/B ve acil dönüş)."""
+    p = XE9.ExitParams(min_hold_sec=0, time_stop_sec=3600, lock_mode="breakeven").validated()
+    t = _trk()
+    XE9.decide_exit(t, 100.35, 100.35, 100.0, p, now=1100.0)
+    XE9.decide_exit(t, 100.55, 100.55, 100.3, p, now=1200.0)
+    assert t.be_locked and t.hard_stop == pytest.approx(100.2)
 
 
 def test_zaman_kilidi_ve_erken_iptal():
@@ -665,9 +682,13 @@ def test_kosucu_be_kilidini_pozisyona_yansitir(tmp_path):
     FakeExchange.path["BTC/USDT"] = p + [up] * 2
     r.run_cycle(now=1_000_000.0 + 20 * 60)
     assert pos.be_locked and pos.hard_stop >= pos.entry
+    # v2: kilit NET başabaşın da üstünde (giriş fiyatı net başabaş değildir)
+    assert pos.hard_stop > pos.entry * (1 + pos.cost_pct_roundtrip / 100.0)
     FakeExchange.path["BTC/USDT"] = p + [up] * 2 + [pos.hard_stop * 0.9999] * 2      # kilitli stop'un hemen altına iner (boşluksuz)
     r.run_cycle(now=1_000_000.0 + 21 * 60)
-    assert not r.positions and r.trades[-1]["reason"] == "BE_LOCK" and r.trades[-1]["net_pnl"] >= -0.05 * r.trades[-1]["notional"] / 100
+    t = r.trades[-1]
+    assert t["reason"] in ("GIVEBACK", "BE_LOCK")
+    assert t["net_pnl"] > 0, "v2 kilidi ARTIDA kapatmalı (v1: yaklaşık 0,00)"
 
 
 def test_simulator_gunluk_tavan_ve_emir_tavani_senkron(tmp_path):

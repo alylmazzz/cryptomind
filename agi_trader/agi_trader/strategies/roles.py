@@ -358,8 +358,20 @@ def role_mover(pick: Optional[Dict]) -> RoleVote:
 def role_cost_execution(target_gross_pct: float, cost_pct_taker: float, cost_pct_maker: float,
                         spread_bps: float, bid_depth: float, ask_depth: float,
                         notional: float, min_gross_to_cost: float,
-                        p_maker_fill: float = 0.5, max_spread_bps: float = 15.0) -> RoleVote:
+                        p_maker_fill: float = 0.5, max_spread_bps: float = 15.0,
+                        book_ok: bool = True, book_stale: bool = False) -> RoleVote:
     v = RoleVote("maliyet_yurutme")
+    # ── ÖLÇÜLMEMİŞ DEFTER = VETO ─────────────────────────────────────────────
+    # Defter alınamadığında spread 0 / derinlik 0 dönüyordu; maliyet modelinde bu
+    # "bedava yürütme + sınırsız likidite" demektir. Yani VERİ KAYBI kapıyı sıkmak
+    # yerine GEVŞETİYORDU: en riskli anda en cömert varsayım. Ölçülmemiş likiditeyle
+    # emir gönderilmez.
+    if not book_ok:
+        v.veto = "DEFTER ölçülmedi (spread/derinlik bilinmiyor) — ölçülmemiş likiditeyle emir yok"
+        v.confidence = 1.0
+        v.notes.append("sıfır spread 'bedava' değil 'bilinmiyor' demektir")
+        v.order_type = "taker"  # type: ignore[attr-defined]
+        return v
     # beklenen maliyet: maker dolarsa maker, dolmazsa taker
     exp_cost = p_maker_fill * cost_pct_maker + (1.0 - p_maker_fill) * cost_pct_taker
     ratio = target_gross_pct / exp_cost if exp_cost > 0 else float("inf")
@@ -373,9 +385,15 @@ def role_cost_execution(target_gross_pct: float, cost_pct_taker: float, cost_pct
     if depth and notional > depth * 0.1:
         v.veto = (v.veto or "") + f" | DERİNLİK emir {notional:.0f}$ > bandın %10'u ({depth:.0f}$)"
     elif not depth:
-        v.notes.append("derinlik ölçülmedi (varsayım)")
+        # ölçülmüş defter ama derinlik alanı yok (bazı borsalar vermez): boyut kısıtı
+        v.notes.append("derinlik alanı yok — boyut ×0,5 (varsayımla tam boyut oynanmaz)")
+        v.size_mult = 0.5
+    if book_stale:
+        v.notes.append("defter BAYAT (yenilenemedi) — boyut ×0,5")
+        v.size_mult = min(getattr(v, "size_mult", 1.0) or 1.0, 0.5)
     v.confidence = 1.0
-    v.size_mult = 1.0 if ratio >= 2 * min_gross_to_cost else 0.75
+    # veri kalitesi cezası (yukarıda konmuşsa) KORUNUR — üzerine yazılmaz
+    v.size_mult = float(getattr(v, "size_mult", 1.0) or 1.0) * (1.0 if ratio >= 2 * min_gross_to_cost else 0.75)
     v.order_type = "maker" if spread_bps <= max_spread_bps else "taker"  # type: ignore[attr-defined]
     v.notes.append(f"emir tipi: {'MAKER (limit, en iyi teklif)' if spread_bps <= max_spread_bps else 'TAKER'}")
     if v.veto:

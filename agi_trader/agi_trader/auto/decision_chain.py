@@ -45,6 +45,11 @@ class ChainConfig:
     strict_qualification: bool = False    # True: NİTELENMEMİŞ hücre → veto
     unqualified_mult: float = 0.5
     use_opportunity_gates: bool = True
+    # ÖLÇÜLMEMİŞ DERİNLİK: eskiden notional'ın 50 katı derinlik VARSAYILIYOR ve kapı
+    # geçiriliyordu — veri kaybı en cömert varsayıma dönüşüyordu. Artık varsayılan
+    # davranış VETO'dur; False yapılırsa eski (beyan-et-geçir) davranışa dönülür.
+    veto_on_assumed_depth: bool = True
+    assumed_depth_mult: float = 50.0      # yalnız veto kapalıyken kullanılan varsayım
     min_net_return_pct: float = 0.30      # scalp için net eşik (NET1 programı %1'dir)
     p_timeout: float = 0.10
     use_regime: bool = True
@@ -202,9 +207,16 @@ def decide(inp: ChainInputs, cfg: ChainConfig) -> ChainDecision:
     # 5) FIRSAT KAPILARI (maliyet modeli + EV)
     if cfg.use_opportunity_gates:
         net_target = max(0.0, inp.target_gross_pct - inp.cost_pct)
-        # derinlik ölçülmediyse notional'ın 50 katı varsayılır ve beyan edilir
-        bid = inp.bid_depth_usd or inp.notional * 50.0
-        ask = inp.ask_depth_usd or inp.notional * 50.0
+        depth_assumed = not bool(inp.bid_depth_usd and inp.ask_depth_usd)
+        if depth_assumed and cfg.veto_on_assumed_depth:
+            vetoes.append("DERİNLİK ölçülmedi")
+            _step(steps, "FIRSAT", VETO,
+                  "defter derinliği ölçülmedi — likidite VARSAYARAK emir gönderilmez "
+                  "(varsayım, veri kaybını cömertliğe çevirir)")
+            mult = float(min(cfg.max_size_mult, max(0.0, mult)))
+            return ChainDecision(allowed=False, size_mult=0.0, steps=steps, vetoes=vetoes, opportunity=None)
+        bid = inp.bid_depth_usd or inp.notional * cfg.assumed_depth_mult
+        ask = inp.ask_depth_usd or inp.notional * cfg.assumed_depth_mult
         p_t = float(min(0.95, max(0.05, inp.p_target)))
         p_s = max(0.0, 1.0 - p_t - cfg.p_timeout)
         try:
@@ -224,7 +236,7 @@ def decide(inp: ChainInputs, cfg: ChainConfig) -> ChainDecision:
                                                else round(op.expected_value_pct, 4)),
                         "reject_reasons": op.reject_reasons,
                         "liquidity_score": round(op.liquidity_score, 3),
-                        "depth_assumed": not bool(inp.bid_depth_usd and inp.ask_depth_usd)}
+                        "depth_assumed": depth_assumed}
             if op.action == "NO_TRADE":
                 vetoes.append("FIRSAT " + "; ".join(op.reject_reasons[:2]))
                 _step(steps, "FIRSAT", VETO, "; ".join(op.reject_reasons))

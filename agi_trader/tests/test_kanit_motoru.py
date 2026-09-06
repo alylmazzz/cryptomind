@@ -280,3 +280,77 @@ def test_kalibrasyon_olceri_TERS_tahmini_yakalar():
     assert d["pearson"] < -0.9 and d["kalibrasyon_egimi"] < 0
     assert d["bilgi_var"] is False, "ters ilişkide 'bilgi var (pozitif)' denmemeli"
     assert d["tekduze"] is False
+
+
+# ═══════════ 8) ROTASYON HANGİ EV'YE BAĞLI? (ölçüme göre, kalibre ederek) ═══════════
+class _SahteKosucu:
+    """`_rotation_ev` / `_calib_map`'i izole sınamak için asgari yüzey."""
+    def __init__(self, calib=None):
+        self._sabit = calib or {}
+    def _calib_map(self, ttl=900.0):
+        return self._sabit
+
+
+def _rot_ev(calib, ticket):
+    from agi_trader.auto import live_runner as LR
+    r = _SahteKosucu(calib)
+    return LR.LiveRunner._rotation_ev(r, ticket)
+
+
+def test_olcum_YOKKEN_MUHAFAZAKAR_olani_secer():
+    """Bilinmezlikte cömert varsayım yapmak bu depoda tekrar eden hataydı
+    (defter alınamayınca spread 0, derinlik ölçülmeyince notional×50…).
+    Ölçüm hazır değilse iki EV'nin KÜÇÜĞÜ alınır."""
+    ev, kaynak = _rot_ev({}, {"ev_pct": 0.57, "ev_achievable_pct": -0.15})
+    assert ev == pytest.approx(-0.15) and "muhafazakâr" in kaynak
+    # yalnız biri varsa o kullanılır
+    ev2, _ = _rot_ev({}, {"ev_pct": 0.4})
+    assert ev2 == pytest.approx(0.4)
+    # hiçbiri yoksa None → kapı zaten rotasyon yapmaz
+    ev3, k3 = _rot_ev({}, {})
+    assert ev3 is None and "yok" in k3
+
+
+def test_verdikt_ev_achievable_ise_ONA_baglanir():
+    c = {"karar": "ev_achievable DAHA İYİ", "eva_cal": {"egim": 1.0, "kesisim": 0.0}}
+    ev, kaynak = _rot_ev(c, {"ev_pct": 0.57, "ev_achievable_pct": -0.15})
+    assert ev == pytest.approx(-0.15) and kaynak.startswith("ev_achievable")
+
+
+def test_verdikt_ev_pct_ise_ONA_baglanir():
+    c = {"karar": "ev_pct DAHA İYİ", "ev_cal": {"egim": 1.0, "kesisim": 0.0}}
+    ev, kaynak = _rot_ev(c, {"ev_pct": 0.57, "ev_achievable_pct": -0.15})
+    assert ev == pytest.approx(0.57) and kaynak.startswith("ev_pct")
+
+
+def test_SISKIN_ama_bilgili_EV_atilmaz_OLCEKLENIR():
+    """Kilit davranış: eğim 0,2 ise ev_pct 'şişik ama bilgili'dir. Atmak yerine
+    ölçülen ölçeğe indirilir — yoksa ham hâliyle eşiği sürekli aşardı."""
+    c = {"karar": "ev_pct DAHA İYİ", "ev_cal": {"egim": 0.2, "kesisim": -0.4}}
+    ev, kaynak = _rot_ev(c, {"ev_pct": 1.0, "ev_achievable_pct": 0.1})
+    assert ev == pytest.approx(-0.4 + 0.2 * 1.0)      # = −0,20, ham 1,0 değil
+    assert "kalibre" in kaynak and "b=0.2" in kaynak
+    # kalibrasyon, EŞİĞİ aşmayı zorlaştırır (rotasyon seyrekleşir)
+    ham, _ = _rot_ev({"karar": "ev_pct DAHA İYİ"}, {"ev_pct": 1.0})
+    assert ev < ham
+
+
+def test_AYIRT_EDILEMEDI_verdikti_muhafazakar_yola_duser():
+    c = {"karar": "HENÜZ AYIRT EDİLEMEDİ", "ev_cal": {"egim": 5.0, "kesisim": 0.0}}
+    ev, kaynak = _rot_ev(c, {"ev_pct": 0.9, "ev_achievable_pct": 0.1})
+    assert ev == pytest.approx(0.1), "ayırt edilemediyse kalibrasyon UYGULANMAZ, küçük alınır"
+    assert "muhafazakâr" in kaynak
+
+
+def test_calib_map_bozuk_dosyada_BOS_doner(tmp_path):
+    """Fail-safe: dosya yok/bozuk/hazır değil → boş → muhafazakâr yol."""
+    from agi_trader.auto import live_runner as LR
+    class _R:
+        output_dir = str(tmp_path)
+    (tmp_path / "live").mkdir(parents=True, exist_ok=True)
+    assert LR.LiveRunner._calib_map(_R(), ttl=0) == {}
+    (tmp_path / "live" / "ev_calib.json").write_text("{bozuk", encoding="utf-8")
+    assert LR.LiveRunner._calib_map(_R(), ttl=0) == {}
+    (tmp_path / "live" / "ev_calib.json").write_text(
+        json.dumps({"hazir": False, "karar": "ev_pct DAHA İYİ"}), encoding="utf-8")
+    assert LR.LiveRunner._calib_map(_R(), ttl=0) == {}, "hazir=False iken karar UYGULANMAZ"

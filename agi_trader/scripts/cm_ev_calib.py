@@ -66,16 +66,18 @@ def _spearman(xs, ys):
     return _pearson(sira(xs), sira(ys))
 
 
-def _egim(xs, ys):
-    """gerçekleşen = a + b·vaat  → b. Kalibrasyon eğimi."""
+def _regresyon(xs, ys):
+    """gerçekleşen ≈ a + b·vaat → (b, a). Rotasyon kapısı bu HARİTAYI kullanır:
+    ham EV'yi ölçülen ölçeğe indirmeden eşikle kıyaslamak elmayla armut kıyaslamaktır."""
     n = len(xs)
     if n < 3:
-        return 0.0
+        return 0.0, 0.0
     mx, my = st.mean(xs), st.mean(ys)
     vx = sum((a - mx) ** 2 for a in xs)
     if vx <= 0:
-        return 0.0
-    return sum((a - mx) * (b - my) for a, b in zip(xs, ys)) / vx
+        return 0.0, my
+    b = sum((a - mx) * (c - my) for a, c in zip(xs, ys)) / vx
+    return b, my - b * mx
 
 
 def analiz(cift, ad):
@@ -102,7 +104,8 @@ def analiz(cift, ad):
         "yanlilik": round(st.mean(xs) - st.mean(ys), 4),
         "pearson": round(r, 3), "pearson_ci95": ci,
         "spearman": round(_spearman(xs, ys), 3),
-        "kalibrasyon_egimi": round(_egim(xs, ys), 3),
+        "kalibrasyon_egimi": round(_regresyon(xs, ys)[0], 4),
+        "kalibrasyon_kesisim": round(_regresyon(xs, ys)[1], 4),
         "bilgi_var": bool(ci and ci[0] > 0),
     }
     # desiller
@@ -162,8 +165,15 @@ def main() -> int:
                       "ev_pct DAHA İYİ" if m + 1.96 * se < 0 else "HENÜZ AYIRT EDİLEMEDİ"),
         }
 
+    # Rotasyon kapısının okuyacağı sadeleştirilmiş harita
+    for anahtar, kaynak in (("ev_cal", "ev_pct"), ("eva_cal", "ev_achievable")):
+        d = out.get(kaynak)
+        if d and d["n"] >= MIN_N:
+            out[anahtar] = {"egim": d["kalibrasyon_egimi"], "kesisim": d["kalibrasyon_kesisim"],
+                            "n": d["n"], "r": d["pearson"]}
     yeterli = len(ikisi) >= MIN_N
     out["hazir"] = yeterli
+    out["karar"] = (out.get("eslestirilmis_hata_farki") or {}).get("karar", "HENÜZ AYIRT EDİLEMEDİ")
     out["ozet"] = ("ölçüm hazır" if yeterli else
                    f"yetersiz örneklem: iki EV'si birden kayıtlı {len(ikisi)}/{MIN_N} işlem")
 

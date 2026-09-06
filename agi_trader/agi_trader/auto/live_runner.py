@@ -923,7 +923,8 @@ class LiveRunner:
                         try:
                             probe = self._probe_candidate(sym, df, prices[sym], health, now)
                             if probe and probe.get("allowed"):
-                                victim = self._maybe_rotate((probe.get("ticket") or {}).get("ev_pct"), sym, now)
+                                ev_b, ev_kaynak = self._rotation_ev(probe.get("ticket"))
+                                victim = self._maybe_rotate(ev_b, sym, now, ev_kaynak)
                                 if victim is not None:
                                     self._close(victim, prices.get(victim.symbol) or victim.last_price or victim.entry, "ROTATION", now)
                                     self._try_entry_committee(sym, df, prices[sym], health, now)
@@ -1868,9 +1869,68 @@ class LiveRunner:
         except Exception:
             pass
 
-    def _maybe_rotate(self, ev_b_pct: Optional[float], sym_b: str, now: float) -> Optional[Position]:
+    def _rotation_ev(self, ticket: Optional[Dict]) -> tuple:
+        """Rotasyon kapısının kullanacağı EV — ÖLÇÜME bağlı seçilir.
+
+        NEDEN: kapı `ticket["ev_pct"]` kullanıyordu; o sayının 182 işlemde gerçekleşenle
+        korelasyonu +0,089 (öngörü gücü YOK) ve 5 kat şişikti. Komite ZATEN
+        `ev_achievable_pct` de hesaplıyor (ölçülmüş sleeve MFE ile). Hangisinin
+        öngördüğü `scripts/cm_ev_calib.py` ile ölçülüyor; bu fonksiyon kararı UYGULAR.
+
+        İKİ AŞAMALI:
+          1. HANGİSİ? — ölçüm verdiktine göre. Verdikt yoksa/ayırt edilemediyse
+             MUHAFAZAKÂR olan (ikisinin KÜÇÜĞÜ) alınır. Bilinmezlikte cömert varsayım
+             yapmak, bu depoda tekrar eden hataydı.
+          2. HANGİ ÖLÇEKTE? — ham EV, ölçülen regresyonla (gerçekleşen ≈ a + b·vaat)
+             gerçek ölçeğe indirilir. Bu ŞART: "hangisi daha iyi öngörüyor" sorusu
+             SIRALAMA hakkındadır; eşikle kıyaslama ise ÖLÇEK gerektirir. Şişik bir EV
+             sıralamada iyi olsa bile ham hâliyle eşiği sürekli aşardı."""
+        t = ticket or {}
+        ev, eva = t.get("ev_pct"), t.get("ev_achievable_pct")
+        c = self._calib_map()
+        karar = str(c.get("karar") or "")
+        if karar.startswith("ev_achievable") and eva is not None:
+            ham, kaynak, cal = float(eva), "ev_achievable", c.get("eva_cal")
+        elif karar.startswith("ev_pct") and ev is not None:
+            ham, kaynak, cal = float(ev), "ev_pct", c.get("ev_cal")
+        else:
+            adaylar = [float(x) for x in (ev, eva) if x is not None]
+            if not adaylar:
+                return None, "EV yok"
+            ham, kaynak, cal = min(adaylar), "muhafazakâr(min)", None
+        if cal and cal.get("egim") is not None:
+            ham = float(cal["kesisim"]) + float(cal["egim"]) * ham
+            kaynak += f"·kalibre(b={cal['egim']})"
+        return ham, kaynak
+
+    def _calib_map(self, ttl: float = 900.0) -> Dict:
+        """`runs/live/ev_calib.json` — saatlik cron üretir. Yoksa/bozuksa BOŞ döner
+        ve kapı muhafazakâr yola düşer (fail-safe)."""
+        now = time.time()
+        hit = getattr(self, "_calib_cache", None)
+        if hit and now - hit[0] < ttl:
+            return hit[1]
+        out: Dict = {}
+        try:
+            p = Path(self.output_dir)
+            if not p.is_absolute():
+                p = Path(__file__).resolve().parents[2] / p
+            f = p / "live" / "ev_calib.json"
+            if f.exists():
+                d = json.loads(f.read_text(encoding="utf-8"))
+                if d.get("hazir"):
+                    out = {"karar": d.get("karar"), "ev_cal": d.get("ev_cal"),
+                           "eva_cal": d.get("eva_cal"), "n": d.get("n_ikisi")}
+        except Exception:
+            out = {}
+        self._calib_cache = (now, out)
+        return out
+
+    def _maybe_rotate(self, ev_b_pct: Optional[float], sym_b: str, now: float,
+                      ev_kaynak: str = "?") -> Optional[Position]:
         """Fırsat rotasyonu: EV_B − geçiş maliyeti − marj > kalan EV_A olan en zayıf açık pozisyonu kapat.
-        Tepe koruması silahlı ve devam olasılığı ≥ 0,5 olan kazananlar rotasyona verilmez (trend sürdürülür)."""
+        Tepe koruması silahlı ve devam olasılığı ≥ 0,5 olan kazananlar rotasyona verilmez (trend sürdürülür).
+        EV_B'nin HANGİ ölçüden ve HANGİ ölçekte geldiği `_rotation_ev` tarafından belirlenir."""
         if ev_b_pct is None or not self.positions or getattr(self, "_rotations_today", 0) >= 6:
             return None
         switching = 2.0 * self._cost_pct_est() + float(getattr(self.params, "rotation_margin_pct", 0.15))
@@ -1886,7 +1946,8 @@ class LiveRunner:
             return None
         victim = min(cands, key=lambda x: float(x.remaining_ev_pct))
         self._rotations_today = getattr(self, "_rotations_today", 0) + 1
-        self._log("exit", f"🔁 ROTASYON: {victim.symbol} kalan EV %{victim.remaining_ev_pct:.3f} < {sym_b} EV %{float(ev_b_pct):.3f} − geçiş %{switching:.2f}")
+        self._log("exit", f"🔁 ROTASYON: {victim.symbol} kalan EV %{victim.remaining_ev_pct:.3f} < {sym_b} "
+                          f"EV %{float(ev_b_pct):.3f} [{ev_kaynak}] − geçiş %{switching:.2f}")
         return victim
 
     def _partial_close(self, pos: Position, price: float, now: float, fraction: float,
@@ -2435,7 +2496,8 @@ class LiveRunner:
                 "tca": self._tca_report(),
                 "kanit": self._evidence_report(),
                 "haber_etki": self._news_impact_report(),
-                "ev_kalibrasyon": self._ev_calib_report(),
+                "ev_kalibrasyon": {**self._ev_calib_report(), "rotasyon_kaynagi": self._rotation_ev(
+                    {"ev_pct": 1.0, "ev_achievable_pct": 0.5})[1]},
                 "risk_mode": self.risk, "cash_mode": self.cash_mode, "portfolio_mode": self.portfolio,
                 "resource": self.resource, "best_action": self.best_action(),
                 "top_opportunities": self.top_opportunities(3),
